@@ -1,0 +1,2020 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Klondike F1 – Bodování CTH</title>
+  <style>
+    :root { --bg:#0b0c10; --card:#14161d; --muted:#8a90a2; --text:#eef0f6; --btn:#232738; --btn2:#2f3652; --danger:#d9534f; --ok:#3ddc97; }
+    * { box-sizing:border-box; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin:0; background:var(--bg); color:var(--text); }
+    header { padding:12px 14px; display:flex; gap:10px; align-items:center; justify-content:space-between; position:sticky; top:0;
+      background:linear-gradient(180deg, rgba(11,12,16,0.98), rgba(11,12,16,0.86)); backdrop-filter: blur(8px);
+      border-bottom:1px solid rgba(255,255,255,0.06); z-index:5; }
+    header h1 { font-size:16px; margin:0; font-weight:650; letter-spacing:.2px; }
+    header .actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    button { background:var(--btn); border:1px solid rgba(255,255,255,0.10); color:var(--text); padding:10px 10px; border-radius:12px; font-weight:650; cursor:pointer; }
+    button:active { transform: scale(0.99); }
+    button:disabled { opacity:0.45; cursor:not-allowed; }
+    .wrap { padding:12px 14px 24px; display:grid; gap:12px; max-width:1180px; margin:0 auto; }
+    .top { display:grid; grid-template-columns: 1fr; gap:12px; }
+    @media (min-width: 1020px){ .top { grid-template-columns: 460px 1fr; align-items:start; } }
+    .panel { background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:12px; }
+    .muted { color:var(--muted); font-size:12px; }
+    .k { font-weight:700; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .teams { display:grid; gap:10px; margin-top:10px; }
+    .team { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:10px; }
+    .teamRow { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .badge { display:flex; align-items:center; gap:10px; }
+    .dot { width:12px; height:12px; border-radius:999px; box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+    .name { font-weight:750; }
+    .stats { text-align:right; }
+    .btnRow { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .btnSmall { padding:8px 10px; border-radius:12px; background:var(--btn2); }
+    .btnDanger { background: rgba(217,83,79,0.15); border-color: rgba(217,83,79,0.35); color:#ffd6d4; }
+    .btnOk { background: rgba(61,220,151,0.12); border-color: rgba(61,220,151,0.35); color:#d8fff0; }
+    .trackBox { display:flex; flex-direction:column; gap:10px; align-items:center; }
+    svg { width:100%; height:auto; max-width:520px; }
+    .legend { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    .legendItem { display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:999px; background:rgba(255,255,255,0.03); }
+    .history { max-height:240px; overflow:auto; padding-right:4px; }
+    .histItem { border-top:1px solid rgba(255,255,255,0.06); padding:8px 0; }
+    .histItem:first-child{ border-top:none; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.07); }
+    th { color:rgba(255,255,255,0.65); font-size:12px; font-weight:750; }
+    td { font-size:13px; }
+    select, input[type="number"]{
+      padding:10px 10px; border-radius:12px; background:#0f1117; border:1px solid rgba(255,255,255,0.12);
+      color:var(--text); font-weight:750;
+    }
+    select{ min-width:170px; }
+    .subpanel { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:10px; }
+    .chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); font-weight:750; font-size:12px; }
+/* Segment: třetiny závodu (vyvažování událostí) */
+.seg { display:flex; gap:8px; flex-wrap:wrap; }
+.segBtn { padding:8px 10px; border-radius:999px; background:var(--btn2); }
+.segBtn.active { background: rgba(61,220,151,0.14); border-color: rgba(61,220,151,0.40); color:#d8fff0; }
+.phaseTable th, .phaseTable td { padding:6px 6px; }
+.phaseTable td { font-size:12px; }
+.phaseTable th { font-size:11px; }
+.tinyNote { color:var(--muted); font-size:11px; margin-top:6px; }
+
+    /* Modal */
+    .modalBg { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:flex-end; justify-content:center; padding:14px; z-index:10; }
+    .modal { width: min(860px, 100%); background:var(--card); border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:12px; box-shadow: 0 10px 40px rgba(0,0,0,0.45); }
+    .modalTop { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+    .modal h2 { margin:0; font-size:16px; }
+    .modalBtns { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:10px; background:rgba(20,22,29,0.96); border:1px solid rgba(255,255,255,0.10); padding:10px 12px; border-radius:999px; display:none; z-index:20; }
+    pre { margin:8px 0 0; padding:10px; background:#0f1117; border:1px solid rgba(255,255,255,0.10); border-radius:12px; overflow:auto; font-size:12px; }
+    .miniGrid { display:grid; grid-template-columns: 1fr; gap:8px; margin-top:10px; }
+    @media (min-width: 700px){ .miniGrid { grid-template-columns: 1fr 1fr; } }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); font-weight:750; font-size:12px; }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Klondike F1 – Bodování CTH</h1>
+  <div class="actions">
+    <button id="btnUndo">Zpět</button>
+    <button id="btnCopyLastReport">Poslední report</button>
+    <button id="btnExport">Export (JSON)</button>
+    <button id="btnImport">Import (JSON)</button>
+    <button id="btnNew" class="btnDanger">Nový závod</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="top">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div class="muted">Okruh</div>
+          <div class="k">40 políček • události na polích: 3, 8, 13, 18, 23, 28, 33, 38</div>
+          <div class="muted" id="roundInfo" style="margin-top:4px;"></div>
+          <div class="muted" id="saveInfo" style="margin-top:2px;"></div>
+        </div>
+      </div>
+
+      <div class="subpanel" style="margin-top:10px;">
+        <div class="k">Ruční posun (administrace)</div>
+        <div class="muted">Zadej počet polí (může být záporně) a vyber tým.</div>
+        <div class="row" style="margin-top:8px;">
+          <input id="deltaInput" type="number" value="0" min="-40" max="40" step="1" />
+          <select id="manualTeam"></select>
+          <button id="btnManual" class="btnSmall">Aplikovat posun</button>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,.08);margin:12px 0;"></div>
+        <div class="k">Ruční událost</div>
+        <div class="row" style="margin-top:8px;">
+          <select id="manualEventTeam"></select>
+          <select id="manualEventType">
+            <option value="BOOST">Pozitivní</option>
+            <option value="NEUTRAL">Neutrální</option>
+            <option value="SETBACK">Negativní</option>
+          </select>
+          <button id="btnManualEvent" class="btnSmall">Vyvolat událost</button>
+        </div>
+        <div class="muted" style="margin-top:6px;">Vybere náhodnou událost z vybrané kategorie a aplikuje ji na zvolený tým.</div>
+
+      </div>
+<div class="subpanel" style="margin-top:10px;" id="phasePanel">
+  <div class="row" style="justify-content:space-between;">
+    <div>
+      <div class="k">Třetina závodu (vyvažování událostí)</div>
+      <div class="muted">Přepínej ručně podle průběhu CTH. Ovlivňuje pravděpodobnosti BOOST/NEUTRAL/SETBACK.</div>
+    </div>
+  </div>
+
+  <div class="seg" style="margin-top:8px;">
+    <button id="btnPhase1" class="segBtn">1. třetina</button>
+    <button id="btnPhase2" class="segBtn">2. třetina</button>
+    <button id="btnPhase3" class="segBtn">3. třetina</button>
+  </div>
+
+  <div class="muted" style="margin-top:8px;">Aktuální tabulka pravděpodobností (dle pořadí na trati):</div>
+  <div id="phaseTableWrap" style="margin-top:6px;"></div>
+</div>
+      <div class="muted" style="margin-top:10px;" id="rulesText"></div>
+      <div class="teams" id="teams"></div>
+
+      <div class="subpanel" style="margin-top:12px;">
+        <div class="row" style="justify-content:space-between;">
+          <div class="k">Průběžné pořadí</div>
+          <div class="muted">řazení podle pozice na trati</div>
+        </div>
+        <div id="standings"></div>
+      </div>
+
+      
+      <div class="subpanel" style="margin-top:12px;" id="gamesPanel">
+        <div class="row" style="justify-content:space-between; align-items:flex-end;">
+          <div>
+            <div class="h">Hry a pořadí</div>
+            <div class="muted">Startovní nasazení se počítá jako Hra #1. Každé potvrzené kolo přidá další řádek do tabulky.</div>
+          </div>
+          <button id="btnClearGames" class="btnSmall">Smazat tabulku her</button>
+        </div>
+        <div id="gamesTableWrap" style="margin-top:10px; overflow:auto;"></div>
+      </div>
+<div class="subpanel" style="margin-top:12px;">
+        <div class="row" style="justify-content:space-between;">
+          <div class="k">Události v tomto kole</div>
+          <div class="muted" id="queueInfo"></div>
+        </div>
+        <div id="queueList" class="muted" style="margin-top:6px;"></div>
+      </div>
+
+      <div class="row" style="margin-top:12px; justify-content:space-between;">
+        <div class="chip" id="chipUnique">Nikdy nesmí zůstat 2 týmy na jednom políčku</div>
+        <div class="chip">Kolize: 60:40 pro předjíždějící • opakuje se do unikátního stavu</div>
+      </div>
+    </div>
+
+    <div class="panel trackBox">
+      <div class="muted">Vizuální ukazatel okruhu (stylizace VC Rakouska)</div>
+      <svg id="track" viewBox="0 0 520 520" aria-label="Okruh"></svg>
+      <div class="legend" id="legend"></div>
+
+      <div style="width:100%;">
+        <div class="row" style="justify-content:space-between;">
+          <div class="k">Historie</div>
+          <div class="muted" id="leaderInfo"></div>
+        </div>
+        <div class="history" id="history"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Událost -->
+<div class="modalBg" id="modalBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <div>
+        <h2 id="modalTitle">Událost</h2>
+        <div class="muted" id="modalSub"></div>
+      </div>
+      <button id="modalClose">Zavřít</button>
+    </div>
+
+    <div style="margin-top:8px; display:flex; gap:10px; flex-wrap:wrap;">
+      <span class="pill" id="modalBucket">NEUTRAL</span>
+      <span class="pill" id="modalEffect">Efekt</span>
+    </div>
+
+    
+    <div id="modalCampWrap" class="muted" style="margin-top:10px; display:none;"></div>
+
+    <div id="modalTaskWrap" style="margin-top:10px; display:none;">
+      <div class="k">Podmínka – táborový úkol</div>
+      <div class="muted" id="modalTaskText" style="margin-top:6px;"></div>
+      <div class="row" style="margin-top:8px; gap:10px; align-items:center;">
+        <select id="modalTaskSelect"></select>
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="modalTaskDone" />
+          <span>Splněno</span>
+        </label>
+      </div>
+      <div class="muted" style="margin-top:6px;">Bez splnění úkolu nejde událost aplikovat.</div>
+    </div>
+
+    <div id="modalAvoidWrap" style="margin-top:10px; display:none;">
+      <div class="k">Poslední tým může být ušetřen</div>
+      <div class="muted" id="modalAvoidText" style="margin-top:6px;"></div>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        <input type="checkbox" id="modalAvoidDone" />
+        <span>Úkol splněn → bez penalizace</span>
+      </label>
+    </div>
+
+<div class="modalBtns">
+      <button id="btnApply" class="btnOk">Aplikovat efekt</button>
+      <button id="btnIgnore">Ignorovat</button>
+      <button id="btnReroll">Přelosovat</button>
+    </div>
+
+    <div class="muted" style="margin-top:10px;">
+      Události se vyhodnocují po potvrzení kola. Vliv pozice a rozestupů je interní.
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rekap kola + potvrzení -->
+<div class="modalBg" id="roundModalBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modalTop">
+      <div>
+        <h2>Rekapitulace kola</h2>
+        <div class="muted" id="roundModalSub"></div>
+      </div>
+      <button id="roundModalClose">Zavřít</button>
+    </div>
+
+    <div class="miniGrid">
+      <div>
+        <div class="k">Posuny v tomto kole</div>
+        <div class="muted">podle umístění</div>
+        <div id="roundMoves" class="muted" style="margin-top:6px;"></div>
+      </div>
+      <div>
+        <div class="k">Události v tomto kole</div>
+        <div class="muted">vyhodnotí se po potvrzení kola</div>
+        <div id="roundEvents" class="muted" style="margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      
+    <div style="margin-top:10px;">
+      <div class="k">Hra / aktivita</div>
+      <div class="muted">Zadej název aktivity, za kterou se hodnotilo toto kolo (zapíše se do tabulky her).</div>
+      <input id="activityName" type="text" placeholder="Např. Veverky, Podpisovka, Diskgolf, Noční hra…" style="width:100%; margin-top:6px;" />
+    </div>
+
+<div class="k">Report pro CTH (text)</div>
+      <div class="muted">Zkopíruj do tabulky/kroniky. (Pořadí je „po posunech, před událostmi“.)</div>
+      <pre id="cthReport"></pre>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnCopyReport" class="btnSmall">Kopírovat report</button>
+        <button id="btnConfirmRound" class="btnOk">Potvrdit kolo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const TRACK_SIZE = 40;
+  const EVENT_TILES = new Set([3,8,13,18,23,28,33,38]);
+
+  const PLACE_TO_DELTA = { 1:5, 2:4, 3:3, 4:2, 5:1 };
+  const START_PLACE_TO_TILE = (place) => (6 - place); // 1.->5, 2.->4, ... 5.->1
+
+  const LS_KEY = "klondike_f1_cth_storage_v4"; // ponecháno kvůli kompatibilitě uložených dat
+
+  // Rolling forma pro ochranu „nejlepší průměrné umístění“
+  const FORM_WINDOW = 8;
+  const TOP_TEAM_MAX_NEG_EVENT_PER_ROUND_BY_THIRD = { 1:-4, 2:-3, 3:-2 };
+
+  function topTeamMaxNegThisThird(){
+    const th = state.eventThird ?? 2; // 1..3
+    return TOP_TEAM_MAX_NEG_EVENT_PER_ROUND_BY_THIRD[th] ?? -2;
+  } // eventy v jednom kole max -2 u nejlepšího průměru
+
+  let undoStack = [];
+  let dirty = false;
+
+  const DEFAULT_STATE = () => ({
+    version: 5,
+    phase: "seed", // "seed" | "race"
+    lastSavedAt: null,
+    teams: [
+      { id:"mer", name:"Mercedes",     color:"#00D2BE", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+      { id:"mcl", name:"McLaren",      color:"#FF8700", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+      { id:"ast", name:"Aston Martin", color:"#006F62", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+      { id:"fer", name:"Ferrari",      color:"#DC0000", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+      { id:"wil", name:"Williams",     color:"#005AFF", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+    ],
+    history: [],
+    cthLog: [], // finální reporty po uzavření kola (po událostech)
+    games: [], // tabulka her: [{no,name,roundNo,placements}]
+    rubber: { neutralChance: 0.15 }, // neutrální bucket dle zadání (15 %)
+    eventThird: 1, // 1|2|3 (ruční přepínač třetin)
+    round: {
+      number: 1,
+      activityName: "",
+      locked: false,       // probíhá vyhodnocení událostí
+      needsConfirm: false, // čeká na „Potvrdit kolo“
+      moved: { mer:false, mcl:false, ast:false, fer:false, wil:false },
+      placements: {},      // teamId -> place
+      deltas: {},          // teamId -> delta used (1-5 map)
+      eventQueue: [],      // po uzavření kola: {teamId, ev, round, tile}
+      eventDeltaApplied: {}, // teamId -> sum event delta v tomto kole (pro limit top týmu)
+      resolvedEvents: []     // {teamId, title, applied, effectText}
+    },
+    pending: null
+  });
+
+  let state = loadOrDefault();
+
+  // DOM
+  const elTeams = document.getElementById("teams");
+  const elTrack = document.getElementById("track");
+  const elLegend = document.getElementById("legend");
+  const elHistory = document.getElementById("history");
+  const elLeaderInfo = document.getElementById("leaderInfo");
+  const elRoundInfo = document.getElementById("roundInfo");
+  const elSaveInfo = document.getElementById("saveInfo");
+  const elStandings = document.getElementById("standings");
+  const elQueueInfo = document.getElementById("queueInfo");
+  const elQueueList = document.getElementById("queueList");
+  const elRulesText = document.getElementById("rulesText");
+  const elChipUnique = document.getElementById("chipUnique");
+
+  const elDeltaInput = document.getElementById("deltaInput");
+  const elManualTeam = document.getElementById("manualTeam");
+  const btnPhase1 = document.getElementById("btnPhase1");
+  const btnPhase2 = document.getElementById("btnPhase2");
+  const btnPhase3 = document.getElementById("btnPhase3");
+  const elPhaseTableWrap = document.getElementById("phaseTableWrap");
+
+  const btnManual = document.getElementById("btnManual");
+  const toast = document.getElementById("toast");
+
+  const elManualEventTeam = document.getElementById("manualEventTeam");
+  const elManualEventType = document.getElementById("manualEventType");
+  const btnManualEvent = document.getElementById("btnManualEvent");
+
+  const elGamesTableWrap = document.getElementById("gamesTableWrap");
+  const btnClearGames = document.getElementById("btnClearGames");
+
+  const elActivityName = document.getElementById("activityName");
+
+  const elModalCampWrap = document.getElementById("modalCampWrap");
+  const elModalTaskWrap = document.getElementById("modalTaskWrap");
+  const elModalTaskText = document.getElementById("modalTaskText");
+  const elModalTaskSelect = document.getElementById("modalTaskSelect");
+  const elModalTaskDone = document.getElementById("modalTaskDone");
+  const elModalAvoidWrap = document.getElementById("modalAvoidWrap");
+  const elModalAvoidText = document.getElementById("modalAvoidText");
+  const elModalAvoidDone = document.getElementById("modalAvoidDone");
+
+  // Header buttons
+  document.getElementById("btnUndo").onclick = () => undo();
+  document.getElementById("btnCopyLastReport").onclick = () => copyLastFinalReport();
+  document.getElementById("btnExport").onclick = () => doExport();
+  document.getElementById("btnImport").onclick = () => doImport();
+  document.getElementById("btnNew").onclick = () => {
+    if (!confirm("Opravdu chceš nový závod? Smaže se uložený postup v tomto zařízení.")) return;
+    state = DEFAULT_STATE();
+    undoStack = [];
+    dirty = true;
+    persist(true);
+    render();
+    showToast("Nový závod založen.");
+  };
+
+  // Třetiny závodu (vyvažování událostí)
+  btnPhase1.onclick = () => setEventThird(1);
+  btnPhase2.onclick = () => setEventThird(2);
+  btnPhase3.onclick = () => setEventThird(3);
+
+  // Modal: Událost
+  const modalBg = document.getElementById("modalBg");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalSub = document.getElementById("modalSub");
+  const modalBucket = document.getElementById("modalBucket");
+  const modalEffect = document.getElementById("modalEffect");
+  const btnApply = document.getElementById("btnApply");
+  const btnIgnore = document.getElementById("btnIgnore");
+  const btnReroll = document.getElementById("btnReroll");
+  document.getElementById("modalClose").onclick = () => closeModal();
+
+  // Modal: Rekap kola
+  const roundModalBg = document.getElementById("roundModalBg");
+  const roundModalSub = document.getElementById("roundModalSub");
+  const roundMoves = document.getElementById("roundMoves");
+  const roundEvents = document.getElementById("roundEvents");
+  const cthReport = document.getElementById("cthReport");
+  document.getElementById("roundModalClose").onclick = () => closeRoundModal();
+  document.getElementById("btnCopyReport").onclick = () => copyReport();
+  document.getElementById("btnConfirmRound").onclick = () => confirmRound();
+
+  // ---------- Events ----------
+  // Táborové efekty (neutrální události – bez vlivu na pořadí)
+  const CAMP_EFFECTS_NEUTRAL = [
+    "Táborový efekt: tým má přednost u dalšího jídla.",
+    "Táborový efekt: 3 hodiny oslovovat členy týmu titulem Inženýr/Inženýrka a chovat se k nim s úctou.",
+    "Táborový efekt: během poledního klidu uspořádat tiskovku a zodpovídat dotazy (vedoucí dá otázky).",
+    "Táborový efekt: během poledního klidu sehrát krátkou vtipnou scénku „představení monopostu“ (téma určí vedoucí)."
+  ];
+
+  // Táborové úkoly pro „největší výhodu“ (major boost)
+  const CAMP_TASKS_MAJOR_BOOST = [
+    "Táborový úkol: uklidit celý tábor od odpadků.",
+    "Táborový úkol: umýt ešusy vedoucím.",
+    "Táborový úkol: každý člen týmu udělá pro někoho dobrý skutek."
+  ];
+
+  // Táborový úkol pro možnost „ušetřit“ poslední tým při negativní události
+  const CAMP_TASK_AVOID_LAST = "Táborový úkol: umýt ešusy vedoucím.";
+
+  function pickOne(arr){
+    if (!arr || !arr.length) return "";
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function isMajorBoostEvent(ev){
+    if (!ev) return false;
+    if (ev.kind === "local") return (ev.delta ?? 0) >= 3;
+    if (ev.kind === "localDeferred") return ((ev.delta ?? 0) + (ev.nextDelta ?? 0)) >= 3;
+    return false;
+  }
+
+  // Události – rozdělení na BOOST / NEUTRAL / SETBACK
+  // Pozn.: Neutrální události NIKDY nemění pořadí – pouze táborový efekt (text).
+  const EVENTS = {
+    BOOST: [
+      { key:"DRS",      title:"DRS",                   kind:"local",         delta:+3,               text:"+3 políčka" },                 // MAJOR
+      { key:"NEW_AERO", title:"Nové aero balíčky",     kind:"localDeferred", delta:+1, nextDelta:+2, text:"+1 teď a +2 příště" },        // MAJOR (>=3)
+      { key:"UNDERCUT", title:"UnderCut (pitstop)",    kind:"local",         delta:+2,               text:"+2 políčka" },
+      { key:"FAST_PIT", title:"Rychlý pitstop",        kind:"local",         delta:+2,               text:"+2 políčka" },
+      { key:"NEW_TYRES",title:"Nové gumy",             kind:"local",         delta:+2,               text:"+2 políčka" },
+      { key:"SLIPSTREAM", title:"Slipstream",          kind:"localDeferred", delta:+1, nextDelta:+1, text:"+1 teď a +1 příště" },
+      { key:"RADIO_BOOST", title:"Motivační rádio",    kind:"local",         delta:+1,               text:"+1 políčko" },
+    ],
+    NEUTRAL: [
+      { key:"TEAM_RADIO", title:"Team Radio: “We are checking…”", kind:"none", text:"Bez vlivu na pořadí" },
+      { key:"FIA_PRESS",  title:"FIA press conference",           kind:"none", text:"Bez vlivu na pořadí" },
+      { key:"RED_FLAG",   title:"Red flag (přerušení)",           kind:"none", text:"Bez vlivu na pořadí" },
+      { key:"RADIO_NOISE",title:"Rádiový šum",                    kind:"none", text:"Bez vlivu na pořadí" },
+    ],
+    SETBACK: [
+      { key:"GRID_PENALTY", title:"Grid penalty (trest)",         kind:"local",   delta:-2, text:"-2 políčka", camp:"Táborový efekt: tým jde u dalšího jídla poslední." },
+      { key:"TL_WARNING",   title:"Track limits warning",         kind:"capNext", cap:+2,   text:"Příští posun max +2", camp:"Táborový efekt: další blok komunikace jen šeptem." },
+      { key:"TRACK_LIMITS", title:"Limity tratě",                 kind:"local",   delta:-2, text:"-2 políčka" },
+      { key:"SLOW_PIT",     title:"Zdržení v boxech",             kind:"local",   delta:-3, text:"-3 políčka" },
+      { key:"BAD_STRAT",    title:"Špatná strategie",             kind:"deferred",           nextDelta:-2, text:"Příští posun -2" },
+      // globální – komprese/penalizace dle rozestupů
+      { key:"RAIN",         title:"Déšť",                         kind:"globalDynamic", severity:2, text:"penalizace dle rozestupů" },
+      { key:"SAFETY_CAR",   title:"Safety Car",                   kind:"globalDynamic", severity:3, text:"silná komprese dle rozestupů" },
+    ]
+  };
+
+// ---------- Helpers ----------
+  function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+  function nowIso(){ return new Date().toISOString(); }
+  function avg(arr){ return (!arr || !arr.length) ? null : (arr.reduce((a,b)=>a+b,0) / arr.length); }
+
+  // ---------- Vyvažování událostí: ruční třetiny ----------
+  // pSetb = absolutní pravděpodobnost bucketu SETBACK (z celého losu), pNeutral typicky 0.15, zbytek je BOOST.
+  // Pořadí v poli: [1. místo, 2., 3., 4., 5.]
+  const EVENT_THIRD_PROFILES = {
+    1: { label:"1. třetina", setbackByRank:[0.65, 0.55, 0.45, 0.35, 0.25] },
+    2: { label:"2. třetina", setbackByRank:[0.70, 0.60, 0.45, 0.30, 0.20] },
+    3: { label:"3. třetina", setbackByRank:[0.50, 0.45, 0.40, 0.35, 0.30] },
+  };
+
+  function getEventThird(){
+    const v = parseInt(state.eventThird ?? 1, 10);
+    return (v === 1 || v === 2 || v === 3) ? v : 1;
+  }
+
+  function setEventThird(v){
+    if (v !== 1 && v !== 2 && v !== 3) return;
+    const cur = getEventThird();
+    if (cur === v) return;
+    undoStack.push(deepClone(state));
+    state.eventThird = v;
+    dirty = true;
+    persist(true);
+    render();
+    showToast(`Vyvažování: nastaveno na ${v}. třetinu.`);
+  }
+
+  function fmtPct(x){ return `${Math.round(x*100)} %`; }
+
+
+  function teamLapTile(team){
+    if (team.offTrack) return { lap: 0, tile: null };
+    const lap = Math.floor(team.total / TRACK_SIZE);
+    const tile = ((team.total % TRACK_SIZE) + TRACK_SIZE) % TRACK_SIZE;
+    return { lap, tile };
+  }
+
+  function getRanks(){
+    return [...state.teams].sort((a,b) => {
+      if (a.offTrack && b.offTrack) return 0;
+      if (a.offTrack) return 1;
+      if (b.offTrack) return -1;
+      return b.total - a.total;
+    });
+  }
+
+  function getPhaseFactor(roundNo){
+    // ručně přepínaná třetina (nezávislé na počtu kol)
+    const third = getEventThird();
+    if (third === 1) return 1.35;
+    if (third === 2) return 1.00;
+    return 0.70;
+  }
+
+  function getGlobalChance(roundNo){
+    // globální události: dřív častěji, později méně (dle třetiny)
+    const third = getEventThird();
+    if (third === 1) return 0.30;
+    if (third === 2) return 0.22;
+    return 0.15;
+  }
+
+  function getGlobalPenaltyCap(roundNo){
+    // max penalizace -5 (a dřív raději mírnější) (dle třetiny)
+    const third = getEventThird();
+    if (third === 1) return 3;
+    if (third === 2) return 4;
+    return 5;
+  }
+
+  function bestAvgTeamId(){
+    let bestId = null, bestVal = Infinity;
+    for (const t of state.teams){
+      const window = (t.stats?.lastPlaces || []).slice(-FORM_WINDOW);
+      const a = avg(window);
+      if (a == null) continue;
+      if (a < bestVal){ bestVal = a; bestId = t.id; }
+    }
+    return bestId;
+  }
+
+  function bucketWeightsForTeam(team){
+    const ordered = getRanks().filter(t => !t.offTrack);
+    const idx = ordered.findIndex(t => t.id === team.id);
+    const rank = (idx >= 0) ? (idx + 1) : 3; // 1 = vedoucí, 5 = poslední
+
+    const third = getEventThird();
+    const prof = EVENT_THIRD_PROFILES[third] || EVENT_THIRD_PROFILES[1];
+
+    const pNeutral = clamp(state.rubber.neutralChance ?? 0.15, 0.05, 0.30);
+
+    // pSetb je absolutní pravděpodobnost SETBACK bucketu (z celého losu)
+    let pSetb = prof.setbackByRank[rank-1] ?? prof.setbackByRank[2];
+
+    // bezpečnost: aby BOOST nebyl záporný
+    if (pSetb + pNeutral > 0.98) pSetb = 0.98 - pNeutral;
+    pSetb = clamp(pSetb, 0.0, 1 - pNeutral);
+
+    const pBoost = clamp(1 - pNeutral - pSetb, 0, 1);
+    return { pBoost, pNeutral, pSetb };
+  }
+
+  function pickWeighted(items){
+    const r = Math.random();
+    let acc = 0;
+    for (const it of items){
+      acc += it.w;
+      if (r <= acc) return it.v;
+    }
+    return items[items.length-1].v;
+  }
+
+  function rollEventForTeam(team){
+    const { pBoost, pNeutral, pSetb } = bucketWeightsForTeam(team);
+
+    const bucket = pickWeighted([
+      { v:"BOOST", w:pBoost },
+      { v:"NEUTRAL", w:pNeutral },
+      { v:"SETBACK", w:pSetb }
+    ]);
+
+    const isGlobal = Math.random() < getGlobalChance(state.round.number);
+
+    let pool = EVENTS[bucket];
+    if (isGlobal){
+      const g = pool.filter(e => e.kind.startsWith("global"));
+      if (g.length) pool = g;
+    } else {
+      const l = pool.filter(e => !e.kind.startsWith("global"));
+      if (l.length) pool = l;
+    }
+
+    const ev = pool[Math.floor(Math.random() * pool.length)];
+    return { bucket, ...ev };
+  }
+
+  // ---------- Delta application ----------
+  function applyDeltaBase(team, delta){
+    if (team.offTrack) return { deltaApplied: 0, lapsGained: 0 };
+    const beforeLap = Math.floor(team.total / TRACK_SIZE);
+    team.total = Math.max(0, team.total + delta);
+    const afterLap = Math.floor(team.total / TRACK_SIZE);
+    return { deltaApplied: delta, lapsGained: afterLap - beforeLap };
+  }
+
+  // pouze pro „posun podle umístění“ (spotřebuje deferred/capNext)
+  function applyPlacementDelta(team, delta){
+    if (team.offTrack) return { deltaApplied: 0, lapsGained: 0 };
+    if (team.mod?.deferred){
+      delta += team.mod.deferred;
+      team.mod.deferred = 0;
+    }
+    if (team.mod?.capNext != null){
+      if (delta > team.mod.capNext) delta = team.mod.capNext;
+      team.mod.capNext = null;
+    }
+    return applyDeltaBase(team, delta);
+  }
+
+  // pro eventy (deferred/capNext neovlivňuje a nevybíjí)
+  function applyEventDelta(team, delta){
+    return applyDeltaBase(team, delta);
+  }
+
+  // pro kolize (+1 vždy natvrdo)
+  function applyForcedDelta(team, delta){
+    return applyDeltaBase(team, delta);
+  }
+
+  // pro ruční posun (administrace)
+  function applyManualDelta(team, delta){
+    return applyDeltaBase(team, delta);
+  }
+
+  // ---------- Globální penalizace dle rozestupů ----------
+  function computeDynamicGlobalPenalties(ordered, severity){
+    // Penalizace týmů před nimi (dle rozestupů) – používané např. pro Déšť.
+    // Vrací Map(teamId -> delta).
+    const map = new Map();
+    ordered.forEach(t => map.set(t.id, 0));
+    if (ordered.length < 2) return map;
+
+    const cap = getGlobalPenaltyCap(state.round.number);
+    const divisor = (severity===1)?7 : (severity===2)?5 : 4;
+
+    for (let i=0; i<ordered.length-1; i++){
+      const t = ordered[i];
+      const behind = ordered[i+1];
+      const gapBehind = Math.max(0, t.total - behind.total);
+      const pen = -Math.min(cap, Math.max(0, Math.ceil(gapBehind / divisor)));
+      map.set(t.id, pen);
+    }
+    return map;
+  }
+
+  function computeSafetyCarCompressionDeltas(ordered){
+    // Safety Car: zmenší rozestupy – týmy zezadu "doběhnou" podle ztráty na lídra.
+    // Vrací Map(teamId -> delta), kde delta je typicky kladné číslo pro týmy za lídrem.
+    const map = new Map();
+    ordered.forEach(t => map.set(t.id, 0));
+    if (ordered.length < 2) return map;
+
+    const leader = ordered[0];
+    const third = getEventThird(); // 1..3 (uživatel může ručně přepnout)
+    // Kolik z původní ztráty necháme po Safety Car (nižší = silnější komprese)
+    const remaining = (third===1)?0.55 : (third===2)?0.35 : 0.65;
+    // Maximální posun vpřed (aby to nebyl úplný teleport), škálujeme dle délky tratě
+    const maxBoost = Math.round(TRACK_SIZE * (third===2 ? 0.65 : 0.55));
+
+    for (let i=1; i<ordered.length; i++){
+      const t = ordered[i];
+      const gap = Math.max(0, leader.total - t.total);
+      const targetGap = Math.round(gap * remaining);
+      let boost = gap - targetGap; // kolik polí se má přiblížit k lídrovi
+      boost = clamp(boost, 0, maxBoost);
+      map.set(t.id, boost);
+    }
+    return map;
+  }
+
+
+  // ---------- Kolize (unikátní políčko) ----------
+  function ensureUniqueTiles(triggerOvertakerId){
+    let guard = 500;
+
+    while (guard-- > 0){
+      const onTrack = state.teams.filter(t => !t.offTrack);
+      const groups = new Map();
+
+      for (const t of onTrack){
+        const tile = teamLapTile(t).tile;
+        if (!groups.has(tile)) groups.set(tile, []);
+        groups.get(tile).push(t);
+      }
+
+      let collisionTile = null, colliders = null;
+      for (const [tile, arr] of groups.entries()){
+        if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
+      }
+      if (!colliders) return;
+
+      let overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.sort((a,b)=>b.total-a.total)[0];
+      let defender = colliders.filter(t => t.id !== overtaker.id).sort((a,b)=>b.total-a.total)[0];
+
+      const winner = (Math.random() < 0.6) ? overtaker : defender;
+      const r = applyForcedDelta(winner, +1);
+
+      state.history.unshift({
+        ts: nowIso(),
+        teamId: winner.id,
+        teamName: winner.name,
+        deltaInput: 0,
+        deltaApplied: r.deltaApplied,
+        lapsGained: r.lapsGained,
+        lap: teamLapTile(winner).lap,
+        tile: teamLapTile(winner).tile,
+        event: { title:"Rozhodnutí při kolizi", text:`Kolize na políčku ${collisionTile}: +1 pro ${winner.name}.` },
+        source: "kolize"
+      });
+
+      triggerOvertakerId = winner.id;
+    }
+
+    alert("Varování: nepodařilo se vyřešit kolize v limitu. Použij 'Zpět'.");
+  }
+
+  // ---------- Startovní nasazení ----------
+  function seedTeam(teamId, place){
+    const team = state.teams.find(t => t.id === teamId);
+    if (!team) return;
+
+    if (state.round.locked || state.round.needsConfirm){
+      alert("Aktuální krok je uzamčen. Použij 'Zpět'.");
+      return;
+    }
+
+    undoStack.push(deepClone(state));
+    dirty = true;
+
+    if (state.round.moved[teamId]){
+      alert("Tento tým už byl nasazen. Oprava: 'Zpět'.");
+      return;
+    }
+
+    const targetTile = START_PLACE_TO_TILE(place);
+
+    team.offTrack = false;
+    team.total = targetTile;
+    team.baseTotal = targetTile;
+
+    state.round.moved[teamId] = true;
+    state.round.placements[teamId] = place;
+    state.round.deltas[teamId] = targetTile; // 1. hra: posun dle umístění (1→5, 2→4, ...)
+
+    state.history.unshift({
+      ts: nowIso(),
+      teamId,
+      teamName: team.name,
+      deltaInput: targetTile,
+      deltaApplied: targetTile,
+      lapsGained: 0,
+      lap: 0,
+      tile: targetTile,
+      event: { title:"Nasazení na trať", text:`1. hra (start): ${place}. místo → +${targetTile} polí (políčko ${targetTile}).` },
+      source: "start"
+    });
+
+    // unikátnost na trati (po nasazení jsou obvykle různé, ale držíme pravidlo)
+    ensureUniqueTiles(teamId);
+
+    // hotovo 5/5 => přepnout na závod a uzavřít „hru #1“ standardním potvrzením
+    if (Object.values(state.round.moved).every(v => v === true)){
+      state.phase = "race";
+      state.round.number = 1;
+
+      state.history.unshift({
+        ts: nowIso(),
+        teamId: "all",
+        teamName: "Všichni",
+        deltaInput: 0,
+        deltaApplied: 0,
+        lapsGained: 0,
+        lap: 0,
+        tile: 0,
+        event: { title:"Start hotov", text:"Všechny týmy jsou na trati. Potvrď hru #1 (startovní nasazení)." },
+        source: "start"
+      });
+
+      // default název aktivity pro 1. hru (lze přepsat v rekapitulaci)
+      if (elActivityName){
+        const cur = (elActivityName.value || "").trim();
+        if (!cur) elActivityName.value = "Startovní nasazení";
+      }
+      checkRoundCompletion(); // otevře rekap modal (v 1. kole se eventy negenerují)
+      showToast("Nasazení hotovo. Potvrď hru #1.");
+    }
+
+    persist(true);
+    render();
+  }
+
+
+  // ---------- Posun týmu ----------
+  function moveTeamInternal(teamId, delta, opts){
+    const team = state.teams.find(t => t.id === teamId);
+    if (!team) return;
+
+    dirty = true;
+
+    const mode = opts?.mode || "placement"; // "placement" | "manual" | "event" | "forced"
+    // baseTotal = součet polí pouze z umístění (bez mechanik). Aktualizujeme jen při posunu podle umístění.
+    if (mode === "placement" && opts?.countAsRoundMove){
+      if (team.baseTotal == null) team.baseTotal = 0;
+      team.baseTotal += delta; // deltaInput (1→5, 2→4, ...), bez deferred/capNext/eventů
+    }
+    let r;
+
+    if (mode === "placement") r = applyPlacementDelta(team, delta);
+    else if (mode === "manual") r = applyManualDelta(team, delta);
+    else if (mode === "event") r = applyEventDelta(team, delta);
+    else r = applyForcedDelta(team, delta);
+
+    ensureUniqueTiles(teamId);
+
+    const { lap, tile } = teamLapTile(team);
+
+    state.history.unshift({
+      ts: nowIso(),
+      teamId,
+      teamName: team.name,
+      deltaInput: delta,
+      deltaApplied: r.deltaApplied,
+      lapsGained: r.lapsGained,
+      lap,
+      tile,
+      event: null,
+      source: opts?.source ?? "posun"
+    });
+
+    if (opts?.countAsRoundMove){
+      state.round.moved[teamId] = true;
+      state.round.placements[teamId] = opts.place;
+      state.round.deltas[teamId] = delta;
+      checkRoundCompletion();
+    }
+
+    persist(false);
+  }
+
+  function applyPlacement(teamId, place){
+    if (![1,2,3,4,5].includes(place)) return;
+
+    if (state.phase === "seed"){
+      seedTeam(teamId, place);
+      return;
+    }
+
+    if (state.round.locked || state.round.needsConfirm){
+      alert("Kolo je uzamčené. Potvrď rekapitulaci nebo použij 'Zpět'.");
+      return;
+    }
+
+    undoStack.push(deepClone(state));
+    dirty = true;
+
+    if (state.round.moved[teamId]){
+      alert("Tento tým už v aktuálním kole jel. Oprava: použij 'Zpět'.");
+      return;
+    }
+
+    const delta = PLACE_TO_DELTA[place];
+    moveTeamInternal(teamId, delta, { source:`Umístění ${place}. místo`, mode:"placement", countAsRoundMove:true, place });
+    render();
+  }
+
+  function buildEventQueueForRound(){
+    state.round.eventQueue = [];
+    state.round.resolvedEvents = [];
+    state.round.eventDeltaApplied = state.round.eventDeltaApplied || {};
+
+    // Výjimka: v 1. kole se události nevyhodnocují.
+    if (state.round.number === 1) return;
+
+    // událost vzniká, když tým STOJÍ po dojetí kola přesně na event políčku
+    const onTrack = state.teams.filter(t => !t.offTrack);
+    for (const t of onTrack){
+      const { tile } = teamLapTile(t);
+      if (tile == null) continue;
+      if (!EVENT_TILES.has(tile)) continue;
+
+      const ev = rollEventForTeam(t);
+      state.round.eventQueue.push({ teamId: t.id, ev, round: state.round.number, tile });
+    }
+  }
+
+  function checkRoundCompletion(){
+    const allMoved = Object.values(state.round.moved).every(v => v === true);
+    if (!allMoved) return;
+
+    // uzavření kola = připravit eventy z finálních pozic
+    buildEventQueueForRound();
+
+    state.round.needsConfirm = true;
+    persist(true);
+    openRoundRecapModal();
+  }
+
+  // ---------- Rekap kola + potvrzení ----------
+  function openRoundRecapModal(){
+    const rno = state.round.number;
+    roundModalSub.textContent = `Kolo ${rno}: rekapitulace (události se vyhodnotí po potvrzení).`;
+
+    if (elActivityName){
+      const def = (state.round.number === 1 && (!state.games || !state.games.length)) ? "Startovní nasazení" : "";
+      const cur = (state.round.activityName || "").trim();
+      elActivityName.value = cur || (elActivityName.value || "").trim() || def;
+    }
+
+    const orderedByPlace = Object.entries(state.round.placements)
+      .map(([teamId, place]) => ({ teamId, place }))
+      .sort((a,b) => a.place - b.place);
+
+    roundMoves.innerHTML = orderedByPlace.length
+      ? orderedByPlace.map(it => {
+          const t = state.teams.find(x => x.id === it.teamId);
+          const delta = state.round.deltas[it.teamId] ?? 0;
+          return `${it.place}. ${escapeHtml(t?.name ?? it.teamId)}: +${delta} polí`;
+        }).join("<br/>")
+      : "—";
+
+    const q = state.round.eventQueue;
+    roundEvents.innerHTML = q.length
+      ? q.map((it, i) => {
+          const t = state.teams.find(x => x.id === it.teamId);
+          return `${i+1}. ${escapeHtml(t?.name ?? it.teamId)} – ${escapeHtml(it.ev.title)} (políčko ${it.tile})`;
+        }).join("<br/>")
+      : "Žádné události.";
+
+    cthReport.textContent = buildPreviewCTHReportText();
+    roundModalBg.style.display = "flex";
+  }
+
+  function closeRoundModal(){ roundModalBg.style.display = "none"; }
+
+  function buildPreviewCTHReportText(){
+    const rno = state.round.number;
+
+    const ordered = getRanks().filter(t => !t.offTrack);
+    const orderLine = ordered.map((t,i) => `${i+1}. ${t.name} (${t.total} polí, ${teamLapTile(t).lap} kol)`).join(" | ");
+
+    const orderedByPlace = Object.entries(state.round.placements)
+      .map(([teamId, place]) => ({ teamId, place }))
+      .sort((a,b) => a.place - b.place);
+
+    const movesLine = orderedByPlace.map(it => {
+      const t = state.teams.find(x => x.id === it.teamId);
+      const delta = state.round.deltas[it.teamId] ?? 0;
+      return `${it.place}. ${t?.name ?? it.teamId} +${delta}`;
+    }).join(", ");
+
+    const q = state.round.eventQueue;
+    const eventsLine = q.length
+      ? q.map(it => {
+          const t = state.teams.find(x => x.id === it.teamId);
+          return `${t?.name ?? it.teamId}: ${it.ev.title} (pol. ${it.tile})`;
+        }).join(" | ")
+      : "bez událostí";
+
+    return [
+      `CTH – Kolo ${rno}`,
+      `Pořadí (po posunech, před událostmi): ${orderLine}`,
+      `Posuny podle umístění: ${movesLine}`,
+      `Události: ${eventsLine}`
+    ].join("\n");
+  }
+
+  function buildFinalCTHReportText(roundNo, resolvedEvents){
+    const ordered = getRanks().filter(t => !t.offTrack);
+    const orderLine = ordered.map((t,i) => `${i+1}. ${t.name} (${t.total} polí, ${teamLapTile(t).lap} kol)`).join(" | ");
+
+    const orderedByPlace = Object.entries(state.round.placements)
+      .map(([teamId, place]) => ({ teamId, place }))
+      .sort((a,b) => a.place - b.place);
+
+    const movesLine = orderedByPlace.map(it => {
+      const t = state.teams.find(x => x.id === it.teamId);
+      const delta = state.round.deltas[it.teamId] ?? 0;
+      return `${it.place}. ${t?.name ?? it.teamId} +${delta}`;
+    }).join(", ");
+
+    const eventsLine = (resolvedEvents && resolvedEvents.length)
+      ? resolvedEvents.map(re => {
+          const t = state.teams.find(x => x.id === re.teamId);
+          const name = t ? t.name : re.teamId;
+          const flag = re.applied ? "OK" : "IGN";
+          return `${name}: ${re.title} [${flag}] ${re.effectText || ""}`.trim();
+        }).join(" | ")
+      : "bez událostí";
+
+    return [
+      `CTH – Kolo ${roundNo} (po událostech)`,
+      `Pořadí: ${orderLine}`,
+      `Posuny podle umístění: ${movesLine}`,
+      `Události (výsledek): ${eventsLine}`
+    ].join("\n");
+  }
+
+  function copyReport(){
+    const txt = cthReport.textContent || "";
+    navigator.clipboard?.writeText(txt).then(() => showToast("Report zkopírován.")).catch(() => {
+      prompt("Zkopíruj report:", txt);
+    });
+  }
+
+  function copyLastFinalReport(){
+    const last = state.cthLog?.[0]?.text;
+    if (!last){ showToast("Zatím není žádný finální report."); return; }
+    navigator.clipboard?.writeText(last).then(() => showToast("Poslední report zkopírován.")).catch(() => {
+      prompt("Zkopíruj report:", last);
+    });
+  }
+
+  function updateRollingFormFromRoundPlacements(){
+    for (const t of state.teams){
+      const p = state.round.placements[t.id];
+      if (!p) continue;
+      if (!t.stats) t.stats = { lastPlaces: [] };
+      if (!Array.isArray(t.stats.lastPlaces)) t.stats.lastPlaces = [];
+      t.stats.lastPlaces.push(p);
+      if (t.stats.lastPlaces.length > 50) t.stats.lastPlaces = t.stats.lastPlaces.slice(-50);
+    }
+  }
+
+  function confirmRound(){
+    // uložit název hry/aktivity do tabulky her
+    const rawAct = (elActivityName ? (elActivityName.value || "") : "").trim();
+    state.round.activityName = rawAct || ((state.round.number === 1 && (!state.games || !state.games.length)) ? "Startovní nasazení" : `Hra ${state.round.number}`);
+
+    state.round.needsConfirm = false;
+    state.round.locked = true;
+
+    updateRollingFormFromRoundPlacements();
+
+    closeRoundModal();
+    persist(true);
+    render();
+
+    if (state.round.eventQueue.length > 0) openQueuedEventAtIndex(0);
+    else finishRoundAndStartNext();
+  }
+
+  // ---------- Event modal ----------
+  function openQueuedEventAtIndex(idx){
+    const q = state.round.eventQueue;
+    if (idx < 0 || idx >= q.length){
+      state.pending = null;
+      finishRoundAndStartNext();
+      return;
+    }
+
+    const item = q[idx];
+    const team = state.teams.find(t => t.id === item.teamId);
+    if (!team){ openQueuedEventAtIndex(idx+1); return; }
+
+    state.pending = { type:"event", queueIndex: idx, teamId: item.teamId, ev: item.ev, tile: item.tile };
+
+    modalTitle.textContent = item.ev.title;
+    modalSub.textContent = `${team.name} • event políčko ${item.tile} • kolo ${state.round.number} • ${idx+1}/${q.length}`;
+    modalBucket.textContent = item.ev.bucket;
+    modalEffect.textContent = item.ev.text ?? "";
+
+    modalBg.style.display = "flex";
+
+    btnApply.onclick = () => { closeModal(); applyEventFromQueue(true); };
+    btnIgnore.onclick = () => { closeModal(); applyEventFromQueue(false); };
+    btnReroll.onclick = () => {
+      undoStack.push(deepClone(state));
+      dirty = true;
+      item.ev = rollEventForTeam(team);
+      persist(false);
+      render();
+      openQueuedEventAtIndex(idx);
+    };
+  }
+
+  function recordEventDelta(teamId, delta){
+    if (!state.round.eventDeltaApplied) state.round.eventDeltaApplied = {};
+    if (state.round.eventDeltaApplied[teamId] == null) state.round.eventDeltaApplied[teamId] = 0;
+    state.round.eventDeltaApplied[teamId] += delta;
+  }
+
+  function canApplyNegativeEventDelta(teamId, delta){
+    // Ochrana nejlepších týmů je vypnuta – penalizace řídí pouze pravděpodobnosti dle třetin.
+    return true;
+  }
+
+  function isLastTeamOnTrack(teamId){
+    const ordered = getRanks().filter(t => !t.offTrack);
+    if (!ordered.length) return false;
+    return ordered[ordered.length - 1].id === teamId;
+  }
+
+  function applySingleEvent(team, ev, apply, source){
+    const resolved = { teamId: team.id, title: ev.title, applied: !!apply, effectText: "" };
+
+    if (!apply){
+      resolved.applied = false;
+      resolved.effectText = "Ignorováno";
+      return resolved;
+    }
+
+    let effectText = "";
+    let deltaAppliedForLog = 0;
+
+    // Neutrální události: vždy pouze táborový efekt (bez vlivu na pořadí)
+    if (ev.bucket === "NEUTRAL"){
+      effectText = pickOne(CAMP_EFFECTS_NEUTRAL) || "Táborový efekt: (nenastaveno)";
+      resolved.effectText = effectText;
+
+      state.history.unshift({
+        ts: nowIso(),
+        teamId: team.id,
+        teamName: team.name,
+        deltaInput: 0,
+        deltaApplied: 0,
+        lapsGained: 0,
+        lap: teamLapTile(team).lap,
+        tile: teamLapTile(team).tile,
+        event: { title: ev.title, text: effectText },
+        source: source || "event"
+      });
+
+      showToast("Neutrální událost: táborový efekt.");
+      return resolved;
+    }
+
+    // BOOST: „největší výhoda“ je podmíněná splněním táborového úkolu
+    if (ev.bucket === "BOOST" && isMajorBoostEvent(ev)){
+      const task = pickOne(CAMP_TASKS_MAJOR_BOOST);
+      const ok = confirm(
+        `${ev.title}\n\nToto je největší výhoda (≥ +3). Platí pouze po splnění:\n- ${task}\n\nJe úkol splněn?`
+      );
+      if (!ok){
+        resolved.applied = false;
+        effectText = `Neaplikováno – nesplněno: ${task}`;
+        resolved.effectText = effectText;
+
+        state.history.unshift({
+          ts: nowIso(),
+          teamId: team.id,
+          teamName: team.name,
+          deltaInput: 0,
+          deltaApplied: 0,
+          lapsGained: 0,
+          lap: teamLapTile(team).lap,
+          tile: teamLapTile(team).tile,
+          event: { title: ev.title, text: effectText },
+          source: source || "event"
+        });
+
+        showToast("Neaplikováno – nesplněn táborový úkol.");
+        return resolved;
+      }
+      effectText += `${task} `;
+    }
+
+    // SETBACK: poslední tým může zůstat nezasažen po splnění úkolu
+    if (ev.bucket === "SETBACK" && isLastTeamOnTrack(team.id) && !String(ev.kind||"").startsWith("global")){
+      const ok = confirm(
+        `${ev.title}\n\nTým je poslední. Může zůstat nezasažen, pokud splní:\n- ${CAMP_TASK_AVOID_LAST}\n\nJe splněno?`
+      );
+      if (ok){
+        resolved.applied = false;
+        effectText = `Ušetřeno (poslední tým) – ${CAMP_TASK_AVOID_LAST}`;
+        if (ev.camp) effectText += ` ${ev.camp}`;
+        resolved.effectText = effectText.trim();
+
+        state.history.unshift({
+          ts: nowIso(),
+          teamId: team.id,
+          teamName: team.name,
+          deltaInput: 0,
+          deltaApplied: 0,
+          lapsGained: 0,
+          lap: teamLapTile(team).lap,
+          tile: teamLapTile(team).tile,
+          event: { title: ev.title, text: resolved.effectText },
+          source: source || "event"
+        });
+
+        showToast("Poslední tým ušetřen.");
+        return resolved;
+      }
+    }
+
+    // Aplikace herního efektu
+    if (ev.kind === "none"){
+      effectText += "Bez herního efektu.";
+    } else if (ev.kind === "local"){
+      const r = applyEventDelta(team, ev.delta);
+      deltaAppliedForLog = r.deltaApplied;
+      ensureUniqueTiles(team.id);
+      effectText += `${ev.text} (aplikováno ${r.deltaApplied>0?"+":""}${r.deltaApplied})`;
+    } else if (ev.kind === "localDeferred"){
+      const r = applyEventDelta(team, ev.delta);
+      deltaAppliedForLog = r.deltaApplied;
+      ensureUniqueTiles(team.id);
+      team.mod.deferred += ev.nextDelta;
+      effectText += `${ev.text} (teď ${r.deltaApplied>0?"+":""}${r.deltaApplied}, příště ${ev.nextDelta>0?"+":""}${ev.nextDelta})`;
+    } else if (ev.kind === "deferred"){
+      team.mod.deferred += ev.nextDelta;
+      effectText += `${ev.text}`;
+    } else if (ev.kind === "capNext"){
+      team.mod.capNext = ev.cap;
+      effectText += `${ev.text}`;
+    } else if (ev.kind === "globalDynamic"){
+      const ordered = getRanks().filter(t => !t.offTrack);
+
+      const deltas = (ev.key === "SAFETY_CAR")
+        ? computeSafetyCarCompressionDeltas(ordered)
+        : computeDynamicGlobalPenalties(ordered, ev.severity ?? 2);
+
+      const applied = new Map();
+      ordered.forEach(t=>{
+        const d = deltas.get(t.id) ?? 0;
+        const r = applyEventDelta(t, d);
+        ensureUniqueTiles(t.id);
+        applied.set(t.id, r.deltaApplied);
+      });
+
+      const detail = ordered.map(t=>{
+        const d = applied.get(t.id) ?? 0;
+        return `${t.name} ${d>0?"+":""}${d}`;
+      }).join(", ");
+
+      effectText += `Globální: ${ev.text}. ${detail}`;
+    } else {
+      effectText += "Neznámý typ události.";
+    }
+
+    if (ev.camp) effectText += ` ${ev.camp}`;
+    resolved.effectText = effectText.trim();
+
+    state.history.unshift({
+      ts: nowIso(),
+      teamId: team.id,
+      teamName: team.name,
+      deltaInput: 0,
+      deltaApplied: deltaAppliedForLog,
+      lapsGained: 0,
+      lap: teamLapTile(team).lap,
+      tile: teamLapTile(team).tile,
+      event: { title: ev.title, text: resolved.effectText },
+      source: source || "event"
+    });
+
+    showToast("Událost vyhodnocena.");
+    return resolved;
+  }
+
+  function clearGamesTable(){
+    if (!confirm("Smazat tabulku her?")) return;
+    undoStack.push(deepClone(state));
+    dirty = true;
+    state.games = [];
+    persist(true);
+    render();
+    showToast("Tabulka her smazána.");
+  }
+
+  function manualTriggerEvent(){
+    if (state.phase === "seed"){
+      alert("Manuální události jsou vypnuté během nasazování na start.");
+      return;
+    }
+    if (state.round.locked || state.round.needsConfirm){
+      alert("Kolo je uzamčené. Dokonči vyhodnocení / potvrzení nebo použij 'Zpět'.");
+      return;
+    }
+
+    const teamId = elManualEventTeam ? elManualEventTeam.value : null;
+    const bucket = elManualEventType ? elManualEventType.value : null;
+    const team = state.teams.find(t => t.id === teamId);
+    if (!team || !bucket || !EVENTS[bucket] || !EVENTS[bucket].length) return;
+
+    const evRaw = EVENTS[bucket][Math.floor(Math.random() * EVENTS[bucket].length)];
+    const ev = { bucket, ...evRaw };
+
+    undoStack.push(deepClone(state));
+    dirty = true;
+
+    // aplikovat jako „event“ mimo frontu
+    applySingleEvent(team, ev, true, "event-admin");
+    persist(true);
+    render();
+  }
+
+  function closeModal(){ modalBg.style.display = "none"; }
+
+  function applyEventFromQueue(apply){
+    const p = state.pending;
+    if (!p || p.type !== "event") return;
+
+    undoStack.push(deepClone(state));
+    dirty = true;
+
+    const team = state.teams.find(t => t.id === p.teamId);
+    const ev = p.ev;
+
+    let resolved;
+    if (!team){
+      resolved = { teamId: p.teamId, title: ev.title, applied: false, effectText: "Ignorováno" };
+    } else {
+      resolved = applySingleEvent(team, ev, !!apply, "event-aplikace");
+    }
+
+    state.round.resolvedEvents = state.round.resolvedEvents || [];
+    state.round.resolvedEvents.push(resolved);
+
+    state.round.eventQueue.splice(p.queueIndex, 1);
+    state.pending = null;
+
+    persist(true);
+    render();
+
+    if (state.round.eventQueue.length > 0) openQueuedEventAtIndex(0);
+    else finishRoundAndStartNext();
+  }
+
+  // Po vyhodnocení událostí: připravit další kolo + uložit finální report
+  function finishRoundAndStartNext(){
+    const finishedRoundNo = state.round.number;
+    const resolvedEvents = state.round.resolvedEvents || [];
+
+    // zapsat do tabulky her (umístění + delta) – včetně hry #1
+    recordGameFromCurrentRound(finishedRoundNo);
+
+    // finální report po událostech
+    const finalTxt = buildFinalCTHReportText(finishedRoundNo, resolvedEvents);
+    state.cthLog = state.cthLog || [];
+    state.cthLog.unshift({ round: finishedRoundNo, text: finalTxt, ts: nowIso() });
+
+    state.round.locked = false;
+    state.round.needsConfirm = false;
+
+    state.round.number = finishedRoundNo + 1;
+    resetRoundState(true);
+
+    state.history.unshift({
+      ts: nowIso(),
+      teamId: "all",
+      teamName: "Všichni",
+      deltaInput: 0,
+      deltaApplied: 0,
+      lapsGained: 0,
+      lap: 0,
+      tile: 0,
+      event: { title:"Kolo uzavřeno", text:`Hotovo kolo ${finishedRoundNo}. Připraveno k zadání kola ${state.round.number}.` },
+      source: "kolo"
+    });
+
+    persist(true);
+    render();
+    showToast(`Připraveno: kolo ${state.round.number}.`);
+  }
+
+  function resetRoundState(keepNumber){
+    state.round.moved = { mer:false, mcl:false, ast:false, fer:false, wil:false };
+    state.round.placements = {};
+    state.round.deltas = {};
+    state.round.eventQueue = [];
+    state.round.eventDeltaApplied = {};
+    state.round.resolvedEvents = [];
+    state.round.activityName = "";
+    if (elActivityName) elActivityName.value = "";
+    if (!keepNumber) state.round.number = 1;
+  }
+
+  // ---------- Manual move ----------
+  function manualMove(){
+    if (state.phase === "seed"){
+      alert("Ruční posun je vypnutý během nasazování na start.");
+      return;
+    }
+    if (state.round.locked || state.round.needsConfirm){
+      alert("Kolo je uzamčené. Dokonči vyhodnocení / potvrzení nebo použij 'Zpět'.");
+      return;
+    }
+
+    const v = parseInt(elDeltaInput.value, 10);
+    if (!Number.isFinite(v) || v === 0) return;
+    const teamId = elManualTeam.value;
+
+    undoStack.push(deepClone(state));
+    dirty = true;
+
+    moveTeamInternal(teamId, v, { source:"ruční posun", mode:"manual", countAsRoundMove:false });
+    persist(true);
+    render();
+    showToast("Ruční posun proveden.");
+  }
+
+  // ---------- Undo ----------
+  function undo(){
+    if (!undoStack.length){ showToast("Není co vracet."); return; }
+    state = undoStack.pop();
+    dirty = true;
+    persist(true);
+    render();
+    showToast("Zpět o krok.");
+  }
+
+  // ---------- Export / Import ----------
+  function doExport(){
+    const data = JSON.stringify(state, null, 2);
+    navigator.clipboard?.writeText(data).then(() => {
+      showToast("Export zkopírován do schránky.");
+    }).catch(() => {
+      prompt("Zkopíruj JSON:", data);
+    });
+  }
+
+  function doImport(){
+    const txt = prompt("Vlož JSON ze zálohy:");
+    if (!txt) return;
+    try{
+      const obj = JSON.parse(txt);
+      state = normalizeState(obj);
+      undoStack = [];
+      dirty = true;
+      persist(true);
+      render();
+      showToast("Import hotov.");
+    } catch(e){
+      alert("Import selhal: " + e.message);
+    }
+  }
+
+  // ---------- Storage ----------
+  function normalizeState(obj){
+    const base = DEFAULT_STATE();
+    const out = { ...base, ...obj };
+
+    if (!out.teams || !Array.isArray(out.teams) || out.teams.length !== 5){
+      throw new Error("Neplatná data: teams");
+    }
+
+    out.teams = out.teams.map((t, i) => ({
+      ...base.teams[i],
+      ...t,
+      baseTotal: (t.baseTotal === undefined || t.baseTotal === null) ? (t.total ?? base.teams[i].total ?? 0) : t.baseTotal,
+      mod: { deferred:0, capNext:null, ...(t.mod || {}) },
+      stats: { lastPlaces:[], ...(t.stats || {}) },
+      offTrack: (t.offTrack === undefined) ? false : !!t.offTrack
+    }));
+
+    if (!out.round) out.round = base.round;
+    out.round.moved = out.round.moved || base.round.moved;
+    out.round.placements = out.round.placements || {};
+    out.round.deltas = out.round.deltas || {};
+    out.round.eventQueue = out.round.eventQueue || [];
+    out.round.eventDeltaApplied = out.round.eventDeltaApplied || {};
+    out.round.resolvedEvents = out.round.resolvedEvents || [];
+    if (out.round.needsConfirm === undefined) out.round.needsConfirm = false;
+    if (out.round.locked === undefined) out.round.locked = false;
+
+    if (out.phase !== "seed" && out.phase !== "race") out.phase = "race";
+    if (!out.cthLog) out.cthLog = [];
+    if (!out.games || !Array.isArray(out.games)) out.games = [];
+    if (!out.rubber) out.rubber = base.rubber;
+
+    const third = parseInt(out.eventThird ?? 1, 10);
+    out.eventThird = (third === 1 || third === 2 || third === 3) ? third : 1;
+
+    out.version = 5;
+    return out;
+  }
+
+  function loadOrDefault(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return DEFAULT_STATE();
+      const parsed = JSON.parse(raw);
+      return normalizeState(parsed);
+    } catch {
+      return DEFAULT_STATE();
+    }
+  }
+
+  function persist(force){
+    try{
+      if (!dirty && !force) return;
+      state.lastSavedAt = new Date().toISOString();
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      dirty = false;
+      renderSaveInfo();
+    } catch (e){
+      renderSaveInfo(true);
+      console.warn(e);
+    }
+  }
+
+  window.addEventListener("beforeunload", () => persist(true));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) persist(true); });
+
+  // ---------- Rendering ----------
+  function render(){
+    renderManualTeamSelect();
+    renderRoundInfo();
+    renderSaveInfo();
+    renderRulesText();
+    renderEventPhasePanel();
+    renderTeams();
+    renderStandings();
+    renderGamesTable();
+    renderQueue();
+    renderTrack();
+    renderLegend();
+    renderHistory();
+    renderLeader();
+  }
+
+  function renderSaveInfo(failed){
+    const t = state.lastSavedAt ? new Date(state.lastSavedAt) : null;
+    if (failed){
+      elSaveInfo.textContent = "Ukládání: SELHÁNÍ (doporučení: Export JSON).";
+      return;
+    }
+    if (!t){
+      elSaveInfo.textContent = "Ukládání: zatím neuloženo.";
+      return;
+    }
+    const time = t.toLocaleTimeString("cs-CZ", { hour:"2-digit", minute:"2-digit" });
+    elSaveInfo.textContent = `Ukládání: automaticky • poslední zápis ${time}${dirty ? " • neuložené změny" : ""}`;
+  }
+
+  function renderManualTeamSelect(){
+    const opts = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+    elManualTeam.innerHTML = opts;
+    if (elManualEventTeam) elManualEventTeam.innerHTML = opts;
+    btnManual.onclick = manualMove;
+    if (btnManualEvent) btnManualEvent.onclick = manualTriggerEvent;
+    if (btnClearGames) btnClearGames.onclick = clearGamesTable;
+  }
+
+  function renderRoundInfo(){
+    if (state.phase === "seed"){
+      const seeded = Object.values(state.round.moved).filter(Boolean).length;
+      elRoundInfo.textContent = `REŽIM START: nasazování (hotovo ${seeded}/5) • třetina: ${getEventThird()}/3`;
+    } else {
+      const movedCount = Object.values(state.round.moved).filter(Boolean).length;
+      const lockTxt = state.round.locked ? " • Uzamčeno (události)" : "";
+      const confTxt = state.round.needsConfirm ? " • Čeká na potvrzení kola" : "";
+      elRoundInfo.textContent = `Kolo: ${state.round.number} • třetina: ${getEventThird()}/3 • odjeto: ${movedCount}/5${confTxt}${lockTxt}`;
+    }
+  }
+
+  function renderRulesText(){
+    // Požadavek: odstranit viditelný popis pravidel v závodním režimu.
+    if (state.phase === "seed"){
+      elRulesText.innerHTML =
+        `Start: u každého týmu klikni na <b>1.–5.</b> dle umístění v 1. soutěži. ` +
+        `Tým vjede z “mimo mapu” na trať: <b>1.→5, 2.→4, 3.→3, 4.→2, 5.→1</b>.`;
+      elChipUnique.textContent = "Pravidlo unikátních políček platí na trati (mimo trať ne)";
+    } else {
+      elRulesText.innerHTML = "";
+      elChipUnique.textContent = "Nikdy nesmí zůstat 2 týmy na jednom políčku";
+    }
+  }
+
+
+  function renderEventPhasePanel(){
+    const third = getEventThird();
+    btnPhase1.classList.toggle("active", third === 1);
+    btnPhase2.classList.toggle("active", third === 2);
+    btnPhase3.classList.toggle("active", third === 3);
+
+    const ranks = getRanks();
+    const pNeutral = clamp(state.rubber.neutralChance ?? 0.15, 0.05, 0.30);
+    const prof = EVENT_THIRD_PROFILES[third] || EVENT_THIRD_PROFILES[1];
+
+    const rowsHtml = ranks.map((t, i) => {
+      const rank = i + 1;
+      let pSetb = prof.setbackByRank[i] ?? prof.setbackByRank[2];
+      if (pSetb + pNeutral > 0.98) pSetb = 0.98 - pNeutral;
+      pSetb = clamp(pSetb, 0.0, 1 - pNeutral);
+      const pBoost = clamp(1 - pNeutral - pSetb, 0, 1);
+
+      const dot = `<span class="dot" style="background:${t.color}"></span>`;
+      const name = escapeHtml(t.name);
+      return `
+        <tr>
+          <td><b>${rank}.</b></td>
+          <td style="display:flex; align-items:center; gap:8px;">${dot}<span>${name}</span></td>
+          <td>${fmtPct(pBoost)}</td>
+          <td>${fmtPct(pNeutral)}</td>
+          <td>${fmtPct(pSetb)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const gc = Math.round(getGlobalChance(state.round.number) * 100);
+    const cap = getGlobalPenaltyCap(state.round.number);
+    const pf = getPhaseFactor(state.round.number);
+
+    elPhaseTableWrap.innerHTML = `
+      <table class="phaseTable">
+        <thead>
+          <tr>
+            <th>Pořadí</th>
+            <th>Tým</th>
+            <th>BOOST</th>
+            <th>NEUTRAL</th>
+            <th>SETBACK</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="tinyNote">
+        Profil: <b>${escapeHtml(prof.label)}</b> • globální události ~ <b>${gc} %</b> • max penalizace gapů <b>-${cap}</b> • komprese <b>${pf.toFixed(2)}</b>
+      </div>
+    `;
+  }
+
+
+  function renderTeams(){
+    elTeams.innerHTML = "";
+    const ranks = getRanks();
+    const rankMap = new Map(ranks.map((t,i) => [t.id, i+1]));
+    const topId = bestAvgTeamId();
+
+    for (const t of state.teams){
+      const { lap, tile } = teamLapTile(t);
+      const rank = rankMap.get(t.id);
+      const mod = t.mod ?? { deferred:0, capNext:null };
+
+      const moved = state.round.moved[t.id] ? " • hotovo" : "";
+      const off = t.offTrack ? " • mimo mapu" : "";
+
+      const modParts = [];
+      if (mod.deferred) modParts.push(`příště ${mod.deferred>0?"+":""}${mod.deferred}`);
+      if (mod.capNext!=null) modParts.push(`limit ${mod.capNext}`);
+      const modText = modParts.length ? ` • mod: ${modParts.join(", ")}` : "";
+
+      const disabled = state.round.moved[t.id] || state.round.locked || state.round.needsConfirm;
+
+      const rightStats = t.offTrack
+        ? `<div class="k">—</div><div class="muted">Mimo trať</div>`
+        : `<div class="k">${(t.baseTotal ?? 0)} / ${t.total} polí</div><div class="muted">Okruhy: ${lap} • Políčko: ${tile}/39</div>`;
+
+      const formAvg = avg((t.stats?.lastPlaces || []).slice(-FORM_WINDOW));
+      const formStr = (formAvg == null) ? "" : ` • forma: ${formAvg.toFixed(2)}`;
+      const topStr = (topId && t.id === topId) ? ` • nejlepší průměr` : "";
+
+      const div = document.createElement("div");
+      div.className = "team";
+      div.innerHTML = `
+        <div class="teamRow">
+          <div class="badge">
+            <span class="dot" style="background:${t.color}"></span>
+            <div>
+              <div class="name">${escapeHtml(t.name)}</div>
+              <div class="muted">průběžně: ${rank}. místo${moved}${off}${modText}${formStr}${topStr}</div>
+            </div>
+          </div>
+          <div class="stats">${rightStats}</div>
+        </div>
+
+        <div class="btnRow">
+          <button class="btnSmall" data-team="${t.id}" data-place="1" ${disabled ? "disabled" : ""}>1.</button>
+          <button class="btnSmall" data-team="${t.id}" data-place="2" ${disabled ? "disabled" : ""}>2.</button>
+          <button class="btnSmall" data-team="${t.id}" data-place="3" ${disabled ? "disabled" : ""}>3.</button>
+          <button class="btnSmall" data-team="${t.id}" data-place="4" ${disabled ? "disabled" : ""}>4.</button>
+          <button class="btnSmall" data-team="${t.id}" data-place="5" ${disabled ? "disabled" : ""}>5.</button>
+        </div>
+      `;
+      elTeams.appendChild(div);
+    }
+
+    elTeams.querySelectorAll("button[data-place]").forEach(btn => {
+      btn.onclick = () => {
+        const teamId = btn.getAttribute("data-team");
+        const place = parseInt(btn.getAttribute("data-place"), 10);
+        applyPlacement(teamId, place);
+        persist(false);
+        render();
+      };
+    });
+  }
+
+  function renderStandings(){
+    const ordered = getRanks();
+    let html = `<table>
+      <thead><tr><th>#</th><th>Tým</th><th>Okruhy</th><th>Políčko</th></tr></thead><tbody>`;
+    ordered.forEach((t, i) => {
+      const { lap, tile } = teamLapTile(t);
+      const lapStr = t.offTrack ? "—" : String(lap);
+      const tileStr = t.offTrack ? "mimo mapu" : String(tile);
+      const extra = t.offTrack ? "— mimo mapu" : `— ${(t.baseTotal ?? 0)} / ${t.total} polí (${lap} kol)`;
+      html += `<tr>
+        <td class="k">${i+1}.</td>
+        <td><span style="display:inline-flex;align-items:center;gap:8px;">
+          <span class="dot" style="background:${t.color};width:10px;height:10px;"></span>
+          <span class="k">${escapeHtml(t.name)}</span>
+          <span class="muted">${escapeHtml(extra)}</span>
+        </span></td>
+        <td>${lapStr}</td>
+        <td>${tileStr}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    elStandings.innerHTML = html;
+  }
+
+  
+  function renderGamesTable(){
+    if (!elGamesTableWrap) return;
+    const games = Array.isArray(state.games) ? state.games.slice() : [];
+    games.sort((a,b) => (a.no ?? 0) - (b.no ?? 0));
+
+    if (!games.length){
+      elGamesTableWrap.innerHTML = `<div class="muted">Zatím žádné potvrzené hry. Startovní nasazení se zapíše po potvrzení hry #1.</div>`;
+      return;
+    }
+
+    const headTeams = state.teams.map(t => {
+      const base = (t.baseTotal ?? 0);
+      const total = (t.total ?? 0);
+      return `<th>${escapeHtml(t.name)}<br><span class="muted">${base}/${total}</span></th>`;
+    }).join("");
+
+    let html = `<table>
+      <thead><tr>
+        <th>#</th>
+        <th>Hra / aktivita</th>
+        ${headTeams}
+      </tr></thead><tbody>`;
+
+    for (const g of games){
+      const gno = g.no ?? g.roundNo ?? "—";
+      const name = g.name || `Hra ${gno}`;
+      html += `<tr>
+        <td class="k">${escapeHtml(String(gno))}.</td>
+        <td>${escapeHtml(name)}</td>`;
+
+      for (const t of state.teams){
+        const place = g.placements?.[t.id];
+        const delta = g.deltas?.[t.id];
+        if (place == null){
+          html += `<td class="muted">—</td>`;
+        } else {
+          const d = (delta == null) ? "" : ` (+${delta})`;
+          html += `<td><span class="k">${place}.</span>${escapeHtml(d)}</td>`;
+        }
+      }
+      html += `</tr>`;
+    }
+    html += `</tbody></table>`;
+    elGamesTableWrap.innerHTML = html;
+  }
+
+  function recordGameFromCurrentRound(finishedRoundNo){
+    state.games = Array.isArray(state.games) ? state.games : [];
+    const no = finishedRoundNo;
+
+    const rawName = (state.round.activityName || "").trim();
+    const name = rawName || ((no === 1) ? "Startovní nasazení" : `Hra ${no}`);
+
+    // snapshot výsledků kola
+    const placements = { ...state.round.placements };
+    const deltas = { ...state.round.deltas };
+
+    // pokud někdo chybí (např. kvůli opravám), vyplnit aspoň "—"
+    for (const t of state.teams){
+      if (placements[t.id] == null) placements[t.id] = null;
+      if (deltas[t.id] == null) deltas[t.id] = null;
+    }
+
+    // přepsat existující záznam pro stejné číslo (pokud existuje), jinak přidat
+    const idx = state.games.findIndex(x => (x.no ?? x.roundNo) === no);
+    const row = { no, roundNo: no, name, placements, deltas, ts: nowIso() };
+    if (idx >= 0) state.games[idx] = row;
+    else state.games.push(row);
+  }
+function renderQueue(){
+    const q = state.round.eventQueue || [];
+    elQueueInfo.textContent = `${q.length} událostí`;
+
+    if (!q.length){
+      elQueueList.textContent = state.round.needsConfirm
+        ? "Žádné události v tomto kole."
+        : "Události se připraví po uzavření kola.";
+      return;
+    }
+
+    elQueueList.innerHTML = q.map((it, idx) => {
+      const team = state.teams.find(t => t.id === it.teamId);
+      const name = team ? team.name : it.teamId;
+      return `${idx+1}. ${escapeHtml(name)} – ${escapeHtml(it.ev.title)} (políčko ${it.tile})`;
+    }).join("<br/>");
+  }
+
+  function renderLeader(){
+    const onTrack = getRanks().filter(t => !t.offTrack);
+    if (!onTrack.length){
+      elLeaderInfo.textContent = "Zatím nikdo není na trati.";
+      return;
+    }
+    const leader = onTrack[0];
+    const last = onTrack[onTrack.length-1];
+    const gap = leader.total - last.total;
+    elLeaderInfo.textContent = `Vede: ${leader.name} • rozdíl na posledního: ${gap} polí`;
+  }
+
+  function renderHistory(){
+    elHistory.innerHTML = "";
+    const items = state.history.slice(0, 70);
+    for (const h of items){
+      const ts = new Date(h.ts);
+      const time = ts.toLocaleTimeString("cs-CZ", { hour:"2-digit", minute:"2-digit" });
+      const ev = h.event ? ` • <span class="k">${escapeHtml(h.event.title)}</span>` : "";
+      const deltaStr = h.deltaInput ? `${h.deltaInput>0?"+":""}${h.deltaInput}` : "";
+      const applied = h.deltaApplied ? ` → ${h.deltaApplied>0?"+":""}${h.deltaApplied}` : "";
+      const pos = (h.tile === null || h.tile === undefined) ? "" : ` • kolo ${h.lap}, políčko ${h.tile}`;
+      const line2 = h.event && h.event.text ? `<div class="muted">${escapeHtml(h.event.text)}</div>` : "";
+
+      const div = document.createElement("div");
+      div.className = "histItem";
+      div.innerHTML = `
+        <div><span class="muted">${time}</span> • <span class="k">${escapeHtml(h.teamName)}</span> ${escapeHtml(deltaStr)}${escapeHtml(applied)}${escapeHtml(pos)}${ev} <span class="muted">(${escapeHtml(h.source || "")})</span></div>
+        ${line2}
+      `;
+      elHistory.appendChild(div);
+    }
+  }
+
+  function renderLegend(){
+    elLegend.innerHTML = "";
+    for (const t of state.teams){
+      const item = document.createElement("div");
+      item.className = "legendItem";
+      item.innerHTML = `<span class="dot" style="background:${t.color}"></span><span class="muted">${escapeHtml(t.name)}</span>`;
+      elLegend.appendChild(item);
+    }
+  }
+
+  function renderTrack(){
+    const w = 520, h = 520;
+
+    // stylizovaná “Rakousko” stopa (jednoduchý uzavřený tvar)
+    const trackPathD = `
+      M 140 340
+      Q 120 280 160 240
+      L 330 175
+      Q 380 160 405 190
+      L 445 265
+      Q 460 300 430 320
+      L 305 360
+      Q 250 375 235 415
+      Q 220 460 175 430
+      Q 140 410 140 340
+      Z
+    `.trim();
+
+    const tileTeams = new Map();
+    const activeEventTiles = new Set();
+
+    for (const t of state.teams){
+      if (t.offTrack) continue;
+      const { tile } = teamLapTile(t);
+      if (!tileTeams.has(tile)) tileTeams.set(tile, []);
+      tileTeams.get(tile).push(t);
+      if (EVENT_TILES.has(tile)) activeEventTiles.add(tile);
+    }
+
+    const parts = [];
+    parts.push(`<rect x="0" y="0" width="${w}" height="${h}" fill="transparent"/>`);
+    parts.push(`<path id="trackPath" d="${trackPathD}" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>`);
+    parts.push(`<path d="${trackPathD}" fill="none" stroke="rgba(255,255,255,0.26)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`);
+    parts.push(`<circle id="startDot" cx="0" cy="0" r="6" fill="rgba(255,255,255,0.80)"/>`);
+    parts.push(`<text id="startText" x="0" y="0" fill="rgba(255,255,255,0.60)" font-size="12" text-anchor="middle">START/CÍL</text>`);
+    parts.push(`<g id="ticks"></g>`);
+    parts.push(`<g id="markers"></g>`);
+    elTrack.innerHTML = parts.join("\n");
+
+    const svg = elTrack;
+    const path = svg.querySelector("#trackPath");
+    const gTicks = svg.querySelector("#ticks");
+    const gMarkers = svg.querySelector("#markers");
+
+    const L = path.getTotalLength();
+    const step = L / TRACK_SIZE;
+
+    function unitNormalAt(len){
+      const p1 = path.getPointAtLength(Math.max(0, len - 2));
+      const p2 = path.getPointAtLength(Math.min(L, len + 2));
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const mag = Math.hypot(dx, dy) || 1;
+      const tx = dx / mag, ty = dy / mag;
+      return { nx: -ty, ny: tx };
+    }
+
+    { // start/cíl
+      const p0 = path.getPointAtLength(0);
+      svg.querySelector("#startDot").setAttribute("cx", p0.x);
+      svg.querySelector("#startDot").setAttribute("cy", p0.y);
+      svg.querySelector("#startText").setAttribute("x", p0.x);
+      svg.querySelector("#startText").setAttribute("y", p0.y - 18);
+    }
+
+    let tickSvg = "";
+    for (let i=0; i<TRACK_SIZE; i++){
+      const len = i * step;
+      const p = path.getPointAtLength(len);
+      const { nx, ny } = unitNormalAt(len);
+
+      const tLen = 14;
+      const x1 = p.x - nx * (tLen/2);
+      const y1 = p.y - ny * (tLen/2);
+      const x2 = p.x + nx * (tLen/2);
+      const y2 = p.y + ny * (tLen/2);
+
+      const isEvent = EVENT_TILES.has(i);
+      const isActive = activeEventTiles.has(i);
+
+      const stroke = isActive ? "rgba(255,255,255,0.95)" : (isEvent ? "rgba(255,255,255,0.70)" : "rgba(255,255,255,0.22)");
+      const sw = isActive ? 4 : (isEvent ? 3 : 2);
+
+      tickSvg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>`;
+
+      if (i % 5 === 0){
+        const lx = p.x + nx * 22;
+        const ly = p.y + ny * 22;
+        tickSvg += `<text x="${lx}" y="${ly}" fill="rgba(255,255,255,0.40)" font-size="11" text-anchor="middle" dominant-baseline="middle">${i}</text>`;
+      }
+    }
+    gTicks.innerHTML = tickSvg;
+
+    let markSvg = "";
+    for (const [tile, teams] of tileTeams.entries()){
+      const len = tile * step;
+      const p = path.getPointAtLength(len);
+      const { nx, ny } = unitNormalAt(len);
+      const mx = p.x, my = p.y;
+
+      const arr = teams;
+      const gap = 16;
+      const start = -gap * (arr.length - 1) / 2;
+      arr.forEach((t, idx) => {
+        const off = start + idx*gap;
+        markSvg += `<circle cx="${mx + nx*off}" cy="${my + ny*off}" r="8" fill="${t.color}" stroke="rgba(0,0,0,0.55)" stroke-width="2"/>`;
+      });
+    }
+    gMarkers.innerHTML = markSvg;
+  }
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.style.display = "block";
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.style.display = "none", 1700);
+  }
+
+  // ---------- Init ----------
+  function init(){
+    elManualTeam.innerHTML = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+    btnManual.onclick = manualMove;
+
+    // sanity: pokud už jsou na trati, vynutit unikátní stav
+    if (state.teams.some(t => !t.offTrack)){
+      const any = state.teams.find(t => !t.offTrack);
+      ensureUniqueTiles(any?.id || state.teams[0].id);
+    }
+
+    dirty = true;
+    persist(true);
+    render();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
