@@ -422,8 +422,9 @@
   const roundMoves = document.getElementById("roundMoves");
   const roundEvents = document.getElementById("roundEvents");
   const cthReport = document.getElementById("cthReport");
-  document.getElementById("roundModalClose").onclick = () => closeRoundModal();
-  document.getElementById("btnCopyReport").onclick = () => copyReport();
+    const btnRoundModalClose = document.getElementById("roundModalClose");
+  btnRoundModalClose.onclick = () => attemptCloseRoundModal();
+document.getElementById("btnCopyReport").onclick = () => copyReport();
   document.getElementById("btnConfirmRound").onclick = () => confirmRound();
 
   // ---------- Events ----------
@@ -943,9 +944,9 @@
   // ---------- Rekap kola + potvrzení ----------
   function openRoundRecapModal(){
     const rno = state.round.number;
-    roundModalSub.textContent = `Kolo ${rno}: rekapitulace (události se vyhodnotí po potvrzení).`;
-
-    if (elActivityName){
+    roundModalSub.textContent = `Kolo ${rno}: rekapitulace (pokračování pouze přes „Potvrdit kolo“).`;
+    if (btnRoundModalClose){ btnRoundModalClose.disabled = true; btnRoundModalClose.style.display = "none"; }
+if (elActivityName){
       const def = (state.round.number === 1 && (!state.games || !state.games.length)) ? "Startovní nasazení" : "";
       const cur = (state.round.activityName || "").trim();
       elActivityName.value = cur || (elActivityName.value || "").trim() || def;
@@ -975,9 +976,22 @@
     roundModalBg.style.display = "flex";
   }
 
-  function closeRoundModal(){ roundModalBg.style.display = "none"; }
+  function attemptCloseRoundModal(){
+    if (state?.round?.needsConfirm){
+      showToast("Rekapitulaci nejde zavřít. Dokonči ji přes „Potvrdit kolo“.");
+      return;
+    }
+    closeRoundModal(true);
+  }
 
-  function buildPreviewCTHReportText(){
+  function closeRoundModal(force){
+    if (!force && state?.round?.needsConfirm){
+      showToast("Rekapitulaci nejde zavřít. Dokonči ji přes „Potvrdit kolo“.");
+      return;
+    }
+    roundModalBg.style.display = "none";
+  }
+function buildPreviewCTHReportText(){
     const rno = state.round.number;
 
     const ordered = getRanks().filter(t => !t.offTrack);
