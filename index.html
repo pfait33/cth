@@ -380,7 +380,7 @@
       { id:"mcl", name:"McLaren",      color:"#FF8700", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
       { id:"ast", name:"Aston Martin", color:"#006F62", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
       { id:"fer", name:"Ferrari",      color:"#DC0000", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
-      { id:"wil", name:"Williams",     color:"#005AFF", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
+      { id:"wil", name:"Alpine",     color:"#FF4FBF", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
     ],
     history: [],
     cthLog: [], // finální reporty po uzavření kola (po událostech)
@@ -856,6 +856,10 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     queue: [],
     playing: false,
     overlay: null,
+    box: null,
+    titleEl: null,
+    subEl: null,
+    startBtn: null,
     canvas: null,
     ctx: null
   };
@@ -884,7 +888,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function ensureCollisionOverlay(){
-    if (collisionAnim.overlay && collisionAnim.canvas && collisionAnim.ctx) return;
+    if (collisionAnim.overlay && collisionAnim.canvas && collisionAnim.ctx && collisionAnim.startBtn) return;
 
     const ov = document.createElement("div");
     ov.id = "cthCollisionAnimOverlay";
@@ -899,8 +903,36 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       background:#111; border:1px solid rgba(255,255,255,0.10);
       border-radius:16px; padding:10px;
       box-shadow:0 10px 35px rgba(0,0,0,.6);
-      display:grid; justify-items:center;
+      display:grid; justify-items:center; gap:10px;
     `;
+
+    const head = document.createElement("div");
+    head.style.cssText = `
+      width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:2px 2px 0 2px;
+    `;
+
+    const tWrap = document.createElement("div");
+    tWrap.style.cssText = `display:flex; flex-direction:column; gap:2px;`;
+
+    const title = document.createElement("div");
+    title.style.cssText = `font-weight:900; font-size:16px; letter-spacing:.2px; color:#eef0f6;`;
+    title.textContent = "Kolize";
+
+    const sub = document.createElement("div");
+    sub.style.cssText = `font-size:12px; color:rgba(255,255,255,0.70); line-height:1.25;`;
+    sub.textContent = "Klikni na spuštění předjetí.";
+
+    tWrap.appendChild(title);
+    tWrap.appendChild(sub);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Spustit předjetí";
+    btn.style.cssText = `padding:10px 12px; border-radius:12px; font-weight:850;`;
+
+    head.appendChild(tWrap);
+    head.appendChild(btn);
 
     const c = document.createElement("canvas");
     c.width = 410;
@@ -911,11 +943,16 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       border-radius:16px; background:#222;
     `;
 
+    box.appendChild(head);
     box.appendChild(c);
     ov.appendChild(box);
     document.body.appendChild(ov);
 
     collisionAnim.overlay = ov;
+    collisionAnim.box = box;
+    collisionAnim.titleEl = title;
+    collisionAnim.subEl = sub;
+    collisionAnim.startBtn = btn;
     collisionAnim.canvas = c;
     collisionAnim.ctx = c.getContext("2d", { alpha:false });
   }
@@ -1131,7 +1168,6 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
     const overlay = collisionAnim.overlay;
     const ctx = collisionAnim.ctx;
-    const W = ctx.canvas.width, H = ctx.canvas.height;
 
     const laneTopY = 58, laneBottomY = 98;
     const topY0 = laneTopY - Math.floor(OT_CAR_H/2);
@@ -1147,101 +1183,124 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     const MERGE_START = COLLISION_ANIM_CFG.mergeStart;
     const MERGE_END = COLLISION_ANIM_CFG.mergeEnd;
 
-    const BASE_X = Math.round(W * 0.44) - Math.floor(OT_CAR_W/2);
+    const BASE_X = Math.round(ctx.canvas.width * 0.44) - Math.floor(OT_CAR_W/2);
 
     const winnerIsTop = (item.winnerId === item.top.id);
+    const winnerName = winnerIsTop ? item.top.name : item.bottom.name;
+    const loserName  = winnerIsTop ? item.bottom.name : item.top.name;
 
-    // init at pass start
-    let passInit = false;
-    let passFromX = 0, passToX = 0, passStepDx = 0;
+    // UI text
+    if (collisionAnim.titleEl) collisionAnim.titleEl.textContent = `Kolize: ${item.top.name} × ${item.bottom.name}`;
+    if (collisionAnim.subEl) collisionAnim.subEl.textContent = `Vyhrál: ${winnerName}. Klikni na „Spustit předjetí“.`;
+    const btn = collisionAnim.startBtn;
 
-    let raf = null;
-    let startTs = null;
+    // draw initial frame (no movement)
     const dashPhaseRef = { v: 0 };
-
-    // start sound (best effort)
-    const ac = startChiptuneOnce(COLLISION_ANIM_CFG.durationMs);
+    drawOvertakeTrack(ctx, dashPhaseRef);
+    drawOvertakeCar(ctx, Math.round(BASE_X), Math.round(topY0), P_top);
+    drawOvertakeCar(ctx, Math.round(BASE_X), Math.round(botY0), P_bot);
 
     overlay.style.display = "flex";
+    btn.disabled = false;
+    btn.textContent = "Spustit předjetí";
 
     return new Promise((resolve) => {
-      function frame(ts){
-        if (!startTs) startTs = ts;
-        const t = (ts - startTs) / 1000;
+      const onClick = () => {
+        btn.disabled = true;
+        btn.textContent = "Předjíždění…";
 
-        drawOvertakeTrack(ctx, dashPhaseRef);
+        // start sound (best effort – musí být po kliknutí)
+        const ac = startChiptuneOnce(COLLISION_ANIM_CFG.durationMs);
 
-        // wiggle
-        const wigA = Math.sin(t * 10.0) * 4.0;
-        const wigB = Math.sin(t * 10.0 + 1.4) * 4.0;
+        // init at pass start
+        let passInit = false;
+        let passFromX = 0, passToX = 0, passStepDx = 0;
 
-        let topX = BASE_X + wigA;
-        let botX = BASE_X + wigB;
+        let raf = null;
+        let startTs = null;
 
-        let topY = topY0;
-        let botY = botY0;
+        function frame(ts){
+          if (!startTs) startTs = ts;
+          const t = (ts - startTs) / 1000;
 
-        let winX = winnerIsTop ? topX : botX;
-        let loseX = winnerIsTop ? botX : topX;
+          drawOvertakeTrack(ctx, dashPhaseRef);
 
-        let winY = winnerIsTop ? topY0 : botY0;
-        let loseY = winnerIsTop ? botY0 : topY0;
+          // wiggle
+          const wigA = Math.sin(t * 10.0) * 4.0;
+          const wigB = Math.sin(t * 10.0 + 1.4) * 4.0;
 
-        if (!passInit && t >= PASS_START){
-          passInit = true;
-          passFromX = winX;
-          const loserFrontAtStart = loseX + OT_CAR_W;
-          passToX = loserFrontAtStart + PASS_GAP + 26;
-          passStepDx = (passToX - passFromX) / PASS_STEPS;
-          if (passStepDx < 1) passStepDx = 1;
+          let topX = BASE_X + wigA;
+          let botX = BASE_X + wigB;
+
+          let topY = topY0;
+          let botY = botY0;
+
+          let winX = winnerIsTop ? topX : botX;
+          let loseX = winnerIsTop ? botX : topX;
+
+          let winY = winnerIsTop ? topY0 : botY0;
+          let loseY = winnerIsTop ? botY0 : topY0;
+
+          if (!passInit && t >= PASS_START){
+            passInit = true;
+            passFromX = winX;
+            const loserFrontAtStart = loseX + OT_CAR_W;
+            passToX = loserFrontAtStart + PASS_GAP + 26;
+            passStepDx = (passToX - passFromX) / PASS_STEPS;
+            if (passStepDx < 1) passStepDx = 1;
+          }
+
+          if (t >= PASS_START){
+            const passT = Math.max(0, Math.min(1, (t - PASS_START) / (PASS_END - PASS_START)));
+            const stepIndex = Math.min(PASS_STEPS, Math.floor(passT * PASS_STEPS));
+            winX = passFromX + stepIndex * passStepDx;
+            loseX = loseX + (BASE_X - 3 - loseX) * passT; // gentle loss
+          }
+
+          if (t >= MERGE_START){
+            const mergeT = Math.max(0, Math.min(1, (t - MERGE_START) / (MERGE_END - MERGE_START)));
+            const fromY = (winnerIsTop ? topY0 : botY0);
+            const toY = (winnerIsTop ? botY0 : topY0);
+            winY = fromY + (toY - fromY) * mergeT;
+          }
+
+          // guard during merge
+          const yClose = Math.abs(winY - loseY) < 6;
+          if (yClose){
+            const loserFront = loseX + OT_CAR_W;
+            const minWinRear = loserFront + PASS_GAP;
+            if (winX < minWinRear) winX = minWinRear;
+          }
+
+          // map back
+          if (winnerIsTop){
+            topX = winX; botX = loseX;
+            topY = winY; botY = loseY;
+          } else {
+            botX = winX; topX = loseX;
+            botY = winY; topY = loseY;
+          }
+
+          // draw loser first, winner second (winner visible)
+          drawOvertakeCar(ctx, Math.round(topX), Math.round(topY), P_top);
+          drawOvertakeCar(ctx, Math.round(botX), Math.round(botY), P_bot);
+
+          if (t < (COLLISION_ANIM_CFG.durationMs/1000)){
+            raf = requestAnimationFrame(frame);
+          } else {
+            if (raf) cancelAnimationFrame(raf);
+            overlay.style.display = "none";
+            btn.textContent = "Spustit předjetí";
+            try { ac?.close?.(); } catch {}
+            resolve();
+          }
         }
 
-        if (t >= PASS_START){
-          const passT = Math.max(0, Math.min(1, (t - PASS_START) / (PASS_END - PASS_START)));
-          const stepIndex = Math.min(PASS_STEPS, Math.floor(passT * PASS_STEPS));
-          winX = passFromX + stepIndex * passStepDx;
-          loseX = loseX + (BASE_X - 3 - loseX) * passT; // gentle loss
-        }
+        raf = requestAnimationFrame(frame);
+      };
 
-        if (t >= MERGE_START){
-          const mergeT = Math.max(0, Math.min(1, (t - MERGE_START) / (MERGE_END - MERGE_START)));
-          const fromY = (winnerIsTop ? topY0 : botY0);
-          const toY = (winnerIsTop ? botY0 : topY0);
-          winY = fromY + (toY - fromY) * mergeT;
-        }
-
-        // guard during merge
-        const yClose = Math.abs(winY - loseY) < 6;
-        if (yClose){
-          const loserFront = loseX + OT_CAR_W;
-          const minWinRear = loserFront + PASS_GAP;
-          if (winX < minWinRear) winX = minWinRear;
-        }
-
-        // map back
-        if (winnerIsTop){
-          topX = winX; botX = loseX;
-          topY = winY; botY = loseY;
-        } else {
-          botX = winX; topX = loseX;
-          botY = winY; topY = loseY;
-        }
-
-        // draw loser first, winner second (winner visible)
-        drawOvertakeCar(ctx, Math.round(topX), Math.round(topY), P_top);
-        drawOvertakeCar(ctx, Math.round(botX), Math.round(botY), P_bot);
-
-        if (t < (COLLISION_ANIM_CFG.durationMs/1000)){
-          raf = requestAnimationFrame(frame);
-        } else {
-          if (raf) cancelAnimationFrame(raf);
-          overlay.style.display = "none";
-          try { ac?.close?.(); } catch {}
-          resolve();
-        }
-      }
-
-      raf = requestAnimationFrame(frame);
+      // attach one-time click handler for THIS animation
+      btn.addEventListener("click", onClick, { once:true });
     });
   }
 
