@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Klondike F1 Logic Tests</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; background:#0e1117; color:#e6edf3; margin:0; padding:24px; }
+    .card { max-width: 900px; margin: 0 auto; padding: 20px; border-radius: 16px; background:#161b22; border:1px solid #30363d; }
+    .ok { color:#3ddc97; }
+    .bad { color:#ff7b72; }
+    code { background:#0b0f14; padding:2px 6px; border-radius:6px; }
+    li { margin: 0 0 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Klondike F1 Logic Tests</h1>
+    <p>Standalone smoke tests for critical batch-entry validation and preview rules.</p>
+    <ul id="results"></ul>
+  </div>
+  <script>
+    const DEFAULT_PLACE_TO_DELTA = {1:5,2:4,3:3,4:2,5:1};
+    const TRACK_SIZE = 40;
+    const EVENT_TILES = new Set([3,8,13,18,23,28,33,38]);
+    const EVENT_BALANCE_PROFILES = {
+      1: {
+        bucketByRank: [
+          { pBoost:0.30, pNeutral:0.20, pSetb:0.50 },
+          { pBoost:0.34, pNeutral:0.20, pSetb:0.46 },
+          { pBoost:0.40, pNeutral:0.20, pSetb:0.40 },
+          { pBoost:0.46, pNeutral:0.20, pSetb:0.34 },
+          { pBoost:0.50, pNeutral:0.20, pSetb:0.30 }
+        ],
+        globalChance: 0.18,
+        globalPenaltyCap: 2
+      },
+      2: {
+        bucketByRank: [
+          { pBoost:0.18, pNeutral:0.18, pSetb:0.64 },
+          { pBoost:0.24, pNeutral:0.18, pSetb:0.58 },
+          { pBoost:0.36, pNeutral:0.18, pSetb:0.46 },
+          { pBoost:0.48, pNeutral:0.18, pSetb:0.34 },
+          { pBoost:0.56, pNeutral:0.18, pSetb:0.26 }
+        ],
+        globalChance: 0.28,
+        globalPenaltyCap: 4
+      },
+      3: {
+        bucketByRank: [
+          { pBoost:0.20, pNeutral:0.60, pSetb:0.20 },
+          { pBoost:0.21, pNeutral:0.58, pSetb:0.21 },
+          { pBoost:0.22, pNeutral:0.56, pSetb:0.22 },
+          { pBoost:0.23, pNeutral:0.54, pSetb:0.23 },
+          { pBoost:0.24, pNeutral:0.52, pSetb:0.24 }
+        ],
+        globalChance: 0.08,
+        globalPenaltyCap: 1
+      }
+    };
+    const SAMPLE_STATE = {
+      phase: "race",
+      teams: [
+        { id:"mer", name:"Mercedes", total:10, offTrack:false, mod:{ deferred:0, capNext:null } },
+        { id:"mcl", name:"McLaren", total:9, offTrack:false, mod:{ deferred:0, capNext:null } },
+        { id:"ast", name:"Aston Martin", total:8, offTrack:false, mod:{ deferred:0, capNext:null } },
+        { id:"fer", name:"Ferrari", total:7, offTrack:false, mod:{ deferred:0, capNext:null } },
+        { id:"wil", name:"Alpine", total:6, offTrack:false, mod:{ deferred:0, capNext:null } }
+      ]
+    };
+
+    function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+    function getPlaceDelta(place){ return DEFAULT_PLACE_TO_DELTA[place] || 0; }
+    function getBucketProfileForRank(third, rank){
+      return EVENT_BALANCE_PROFILES[third].bucketByRank[rank - 1];
+    }
+    function validateBatchPlacements(state, placements){
+      const issues = [];
+      state.teams.forEach(team => {
+        const place = parseInt(placements?.[team.id], 10);
+        if (![1,2,3,4,5].includes(place)) issues.push(team.name);
+      });
+      return { ok: issues.length === 0, issues };
+    }
+    function getBatchExecutionOrder(state, placements){
+      return Object.entries(placements)
+        .map(([teamId, place]) => ({ teamId, place: parseInt(place, 10), total: state.teams.find(t => t.id === teamId)?.total || 0 }))
+        .filter(item => [1,2,3,4,5].includes(item.place))
+        .sort((a,b) => (a.place - b.place) || (b.total - a.total) || a.teamId.localeCompare(b.teamId));
+    }
+    function buildBatchRoundPreview(state, placements){
+      const validation = validateBatchPlacements(state, placements);
+      if (!validation.ok) return { ok:false, issues:validation.issues, standings:[], collisions:[], eventTiles:[] };
+      const teams = deepClone(state.teams);
+      const collisions = [];
+      function lapTile(team){
+        return { lap: Math.floor(team.total / TRACK_SIZE), tile: ((team.total % TRACK_SIZE) + TRACK_SIZE) % TRACK_SIZE };
+      }
+      function resolveCollision(triggerOvertakerId){
+        let guard = 50;
+        while (guard-- > 0) {
+          const groups = new Map();
+          teams.forEach(t => {
+            const tile = lapTile(t).tile;
+            if (!groups.has(tile)) groups.set(tile, []);
+            groups.get(tile).push(t);
+          });
+          let collisionTile = null;
+          let colliders = null;
+          for (const [tile, arr] of groups.entries()) {
+            if (arr.length > 1) { collisionTile = tile; colliders = arr; break; }
+          }
+          if (!colliders) return;
+          const overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders[0];
+          const defender = colliders.find(t => t.id !== overtaker.id);
+          overtaker.total += 1;
+          collisions.push({ tile: collisionTile, a:overtaker.name, b:defender.name, previewWinner:overtaker.name });
+          triggerOvertakerId = overtaker.id;
+        }
+      }
+      getBatchExecutionOrder(state, placements).forEach(item => {
+        const team = teams.find(t => t.id === item.teamId);
+        team.total += getPlaceDelta(item.place);
+        resolveCollision(item.teamId);
+      });
+      const standings = teams.slice().sort((a,b) => b.total - a.total).map((team, idx) => ({ rank: idx + 1, name: team.name, total: team.total, ...lapTile(team) }));
+      const eventTiles = teams.map(team => ({ name: team.name, ...lapTile(team) })).filter(team => EVENT_TILES.has(team.tile));
+      return { ok:true, issues:[], standings, collisions, eventTiles };
+    }
+    function addResult(name, ok, detail){
+      const li = document.createElement("li");
+      li.className = ok ? "ok" : "bad";
+      li.innerHTML = `<strong>${ok ? "PASS" : "FAIL"}</strong> - ${name}${detail ? ` <code>${detail}</code>` : ""}`;
+      document.getElementById("results").appendChild(li);
+    }
+
+    const invalid = validateBatchPlacements(SAMPLE_STATE, { mer:1 });
+    addResult("validateBatchPlacements rejects incomplete input", invalid.ok === false, invalid.issues.join(","));
+
+    const placements = { mer:1, mcl:2, ast:3, fer:4, wil:5 };
+    const preview = buildBatchRoundPreview(SAMPLE_STATE, placements);
+    addResult("preview succeeds for complete round", preview.ok === true, `rows=${preview.standings.length}`);
+    addResult("preview keeps 5 standings rows", preview.standings.length === 5, `rows=${preview.standings.length}`);
+
+    const tiePreview = buildBatchRoundPreview(SAMPLE_STATE, { mer:1, mcl:1, ast:3, fer:4, wil:5 });
+    addResult("preview accepts tied placement values", tiePreview.ok === true, `collisions=${tiePreview.collisions.length}`);
+    addResult("event hit list is returned", Array.isArray(preview.eventTiles), `hits=${preview.eventTiles.length}`);
+
+    const firstLeader = getBucketProfileForRank(1, 1);
+    const firstLast = getBucketProfileForRank(1, 5);
+    addResult("first third mildly helps trailing teams", firstLast.pBoost > firstLeader.pBoost && firstLast.pSetb < firstLeader.pSetb, `${firstLeader.pSetb}/${firstLast.pSetb}`);
+
+    const secondLeader = getBucketProfileForRank(2, 1);
+    const secondLast = getBucketProfileForRank(2, 5);
+    addResult("middle third balances more strongly than first", (secondLeader.pSetb - secondLast.pSetb) > (firstLeader.pSetb - firstLast.pSetb), `${(secondLeader.pSetb - secondLast.pSetb).toFixed(2)}`);
+
+    const thirdLeader = getBucketProfileForRank(3, 1);
+    const thirdLast = getBucketProfileForRank(3, 5);
+    addResult("final third is mostly neutral", thirdLeader.pNeutral >= 0.52 && thirdLast.pNeutral >= 0.52, `${thirdLeader.pNeutral}/${thirdLast.pNeutral}`);
+    addResult("final third keeps boost/setback nearly even", Math.abs(thirdLeader.pBoost - thirdLast.pBoost) <= 0.04 && Math.abs(thirdLeader.pSetb - thirdLast.pSetb) <= 0.04, `${Math.abs(thirdLeader.pBoost - thirdLast.pBoost).toFixed(2)}`);
+    addResult("global events are strongest in middle and weakest at end", EVENT_BALANCE_PROFILES[2].globalChance > EVENT_BALANCE_PROFILES[1].globalChance && EVENT_BALANCE_PROFILES[1].globalChance > EVENT_BALANCE_PROFILES[3].globalChance, `${EVENT_BALANCE_PROFILES[1].globalChance}/${EVENT_BALANCE_PROFILES[2].globalChance}/${EVENT_BALANCE_PROFILES[3].globalChance}`);
+    addResult("global penalty cap drops for final third", EVENT_BALANCE_PROFILES[3].globalPenaltyCap < EVENT_BALANCE_PROFILES[1].globalPenaltyCap && EVENT_BALANCE_PROFILES[1].globalPenaltyCap < EVENT_BALANCE_PROFILES[2].globalPenaltyCap, `${EVENT_BALANCE_PROFILES[1].globalPenaltyCap}/${EVENT_BALANCE_PROFILES[2].globalPenaltyCap}/${EVENT_BALANCE_PROFILES[3].globalPenaltyCap}`);
+  </script>
+</body>
+</html>
