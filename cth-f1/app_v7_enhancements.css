@@ -1,0 +1,463 @@
+.enhWrap {
+  display: grid;
+  gap: 12px;
+}
+
+.enhGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.enhCard {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.enhCard h3,
+.enhPanel h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.enhValue {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.enhLabel {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.enhPanel {
+  background: linear-gradient(180deg, rgba(23,26,36,0.98), rgba(14,16,24,0.98));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.enhToolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.enhToolbar input[type="text"],
+.enhToolbar input[type="number"],
+.enhToolbar input[type="color"],
+.enhToolbar select,
+.enhPanel input[type="text"],
+.enhPanel input[type="number"],
+.enhPanel input[type="color"],
+.enhPanel textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: #0f1117;
+  color: var(--text);
+}
+
+.enhSplit {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(260px, 0.9fr);
+}
+
+.enhTeamDraft {
+  display: grid;
+  gap: 8px;
+}
+
+.enhDraftRow {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 36px 1fr 120px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: grab;
+}
+
+.enhDraftRow.dragging {
+  opacity: 0.55;
+}
+
+.enhGrip {
+  font-size: 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.enhDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.enhPreviewList,
+.enhHistoryList,
+.enhEventList,
+.enhSettingsList {
+  display: grid;
+  gap: 8px;
+}
+
+.enhPreviewItem,
+.enhHistoryItem,
+.enhEventItem,
+.enhSettingRow {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  padding: 10px;
+}
+
+.enhHistoryHead,
+.enhEventHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.enhButtonRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.enhButtonRow button,
+.enhToolbar button {
+  min-height: 42px;
+}
+
+.enhTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.enhTwoCol {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.enhSettingsTeams {
+  display: grid;
+  gap: 8px;
+}
+
+.enhSettingsTeam {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1.4fr 110px;
+}
+
+.enhMuted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kidsPublicHero {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.kidsF1Hero,
+.kidsDraftPanel {
+  font-family: Bahnschrift, "Arial Narrow", "Segoe UI", sans-serif;
+}
+
+.kidsPublicCard {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.kidsF1Card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
+    radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 35%),
+    linear-gradient(135deg, rgba(182,0,0,0.14), rgba(0,0,0,0.06) 55%, rgba(255,255,255,0.02));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 24px rgba(0,0,0,0.18);
+}
+
+.kidsF1TitleCard::before,
+.kidsDraftPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, #ff3b30, #ff9f0a);
+}
+
+.kidsF1Stripe {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #ffffff 0 24px, #db2b1d 24px 48px);
+  opacity: 0.92;
+}
+
+.kidsF1Subline {
+  margin-top: 6px;
+  color: #c3cad7;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.kidsPublicCard .big {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.kidsDraftBoard {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.kidsDraftLayout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(260px, 0.75fr);
+  align-items: start;
+  margin-top: 10px;
+}
+
+.kidsStatusCol {
+  display: grid;
+  gap: 10px;
+}
+
+.kidsTopLayout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(280px, 0.78fr) minmax(480px, 1.22fr);
+  align-items: start;
+  margin-top: 10px;
+}
+
+.kidsDraftArea,
+.kidsTrackArea,
+.kidsBottomLayout {
+  display: grid;
+  gap: 12px;
+}
+
+.kidsTrackPanelHost > .panel.trackBox {
+  margin: 0;
+}
+
+.kidsTrackPanelHost .trackBox {
+  min-height: 100%;
+}
+
+.kidsTrackPanelHost svg {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.kidsTrackPanelHost .legend {
+  width: 100%;
+  justify-content: center;
+}
+
+.kidsBottomLayout {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.kidsDraftLane {
+  display: grid;
+  gap: 8px;
+}
+
+.kidsDraftSlot {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(90deg, rgba(var(--team-accent-rgb, 255,255,255), 0.24), rgba(var(--team-accent-rgb, 255,255,255), 0.08) 45%, rgba(255,255,255,0.03)),
+    rgba(255,255,255,0.04);
+  min-height: 66px;
+}
+
+.kidsDraftSlot.drag-over {
+  border-color: rgba(61,220,151,0.55);
+  box-shadow: 0 0 0 2px rgba(61,220,151,0.18) inset;
+}
+
+.kidsDraftPlace {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.kidsDraftTeam {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: grab;
+}
+
+.kidsTeamLead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.kidsTeamLogo {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 18px;
+  color: #ffffff;
+  background:
+    linear-gradient(145deg, var(--logo-accent, #777777), rgba(0,0,0,0.65)),
+    #111111;
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.kidsTeamNameRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kidsTeamWordmark {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+}
+
+.kidsDraftTeam.dragging {
+  opacity: 0.45;
+}
+
+.kidsDraftMeta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.kidsMetaPill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.26);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: #eef0f6;
+  white-space: nowrap;
+}
+
+.kidsDraftEmpty {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  color: var(--muted);
+  font-size: 12px;
+  background: rgba(0,0,0,0.14);
+}
+
+.kidsRoundLog {
+  display: grid;
+  gap: 6px;
+}
+
+.kidsRoundLogLine {
+  color: #dce2ec;
+  font-size: 12px;
+}
+
+.enhCompactList {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.enhCompactList li {
+  margin: 0 0 6px;
+}
+
+body.mode-kids .kidsLayout .kidsLeft .panel:nth-child(2),
+body.mode-kids .kidsLayout .kidsLeft .panel:nth-child(3) {
+  display: none;
+}
+
+body.mode-kids .kidsLayout {
+  position: absolute;
+  left: -99999px;
+  top: 0;
+  width: 520px;
+  height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .enhSplit,
+  .enhTwoCol,
+  .enhSettingsTeam,
+  .enhDraftRow {
+    grid-template-columns: 1fr;
+  }
+
+  .kidsDraftLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .kidsTopLayout,
+  .kidsBottomLayout {
+    grid-template-columns: 1fr;
+  }
+}
