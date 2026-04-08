@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Klondike F1 Smoke Tests</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; background:#0e1117; color:#e6edf3; margin:0; padding:24px; }
+    .card { max-width: 900px; margin: 0 auto; padding: 20px; border-radius: 16px; background:#161b22; border:1px solid #30363d; }
+    .ok { color:#3ddc97; }
+    .bad { color:#ff7b72; }
+    code { background:#0b0f14; padding:2px 6px; border-radius:6px; }
+    li { margin: 0 0 10px; }
+    iframe { width:1px; height:1px; opacity:0; position:absolute; pointer-events:none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Klondike F1 Smoke Tests</h1>
+    <p>Minimal browser smoke tests for the critical batch-entry helpers and public API.</p>
+    <div id="status">Running...</div>
+    <ul id="results"></ul>
+  </div>
+  <iframe id="appFrame" src="./app_v7_alpine.html"></iframe>
+  <script>
+    const results = document.getElementById("results");
+    const status = document.getElementById("status");
+    function addResult(name, ok, detail){
+      const li = document.createElement("li");
+      li.className = ok ? "ok" : "bad";
+      li.innerHTML = `<strong>${ok ? "PASS" : "FAIL"}</strong> - ${name}${detail ? ` <code>${detail}</code>` : ""}`;
+      results.appendChild(li);
+    }
+
+    function run(){
+      const frame = document.getElementById("appFrame");
+      const app = frame.contentWindow && frame.contentWindow.__cthApp;
+      if (!app) {
+        status.textContent = "Waiting for app API...";
+        setTimeout(run, 150);
+        return;
+      }
+
+      try {
+        status.textContent = "App API ready.";
+        const state = app.getClonedState();
+        const invalid = app.validateBatchPlacements({ mer:1 });
+        addResult("validateBatchPlacements rejects incomplete input", invalid.ok === false, JSON.stringify(invalid.issues));
+
+        const placements = {};
+        state.teams.forEach((team, index) => { placements[team.id] = index + 1; });
+        const preview = app.buildBatchRoundPreview(placements);
+        addResult("buildBatchRoundPreview accepts complete round", preview.ok === true, `standings=${preview.standings.length}`);
+        addResult("buildBatchRoundPreview returns 5 standings rows", preview.standings.length === 5, `rows=${preview.standings.length}`);
+
+        const updated = app.getClonedState();
+        updated.settings.trackSize = 55;
+        updated.settings.eventTiles = [5, 15, 25];
+        app.setState(updated);
+        const next = app.getClonedState();
+        addResult("settings persist through API setState", next.settings.trackSize === 55, `trackSize=${next.settings.trackSize}`);
+        addResult("custom event tile list is preserved", Array.isArray(next.settings.eventTiles) && next.settings.eventTiles.join(",") === "5,15,25", next.settings.eventTiles.join(","));
+        status.textContent = "Done.";
+      } catch (error) {
+        status.textContent = "Error.";
+        addResult("smoke tests execution", false, error.message);
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>
