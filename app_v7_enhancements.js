@@ -89,6 +89,7 @@
       if (!teamId || ![1,2,3,4,5].includes(place)) return;
       ui.draftPlacements[teamId] = place;
       ui.selectedKidsTeamId = teamId;
+      */
       refresh();
     }
 
@@ -100,6 +101,12 @@
       const lastArchive = (state.roundArchive || []).slice().sort((a,b) => (b.roundNo || 0) - (a.roundNo || 0))[0];
       const lastChange = state.history?.[0];
       const moved = Object.values(state.round?.moved || {}).filter(Boolean).length;
+      const canCloseRound = !!(state.round?.needsConfirm || (state.round?.locked && !(state.round?.eventQueue || []).length && !state.pending));
+      const roundStatus = state.round?.needsConfirm
+        ? "Kolo ceka na potvrzeni rekapitulace."
+        : state.round?.locked
+          ? "Kolo je uzamcene kvuli vyhodnoceni udalosti."
+          : "Kolo je otevrene pro bezne zadavani.";
       mount.innerHTML = `
         <div class="enhGrid">
           <div class="enhCard">
@@ -123,9 +130,11 @@
           <h3>Rychly prehled</h3>
           <div class="enhMuted">Posledni zmena: ${lastChange ? `${lastChange.teamName || "—"} • ${(lastChange.event?.title || lastChange.source || "zmena")}` : "zatim bez zmen"}</div>
           <div class="enhMuted" style="margin-top:6px;">Posledni potvrzene kolo: ${lastArchive ? `${lastArchive.roundNo}. ${lastArchive.activityName || "bez nazvu"}` : "zatim zadne"}</div>
+          <div class="enhMuted" style="margin-top:6px;">Stav kola: ${roundStatus}</div>
           <div class="enhButtonRow">
             <button class="btnSmall" data-enh-action="toggle-animations">${state.settings?.animationsEnabled === false ? "Zapnout animace" : "Vypnout animace"}</button>
             <button class="btnSmall" data-enh-action="jump-current">Skok na aktualni kolo</button>
+            ${canCloseRound ? `<button class="btnOk" data-enh-action="close-round">Uzavrit rozpracovane kolo</button>` : ""}
           </div>
         </div>
       `;
@@ -204,9 +213,7 @@
                   <div class="enhMuted">Kolize: ${(item.collisions || []).length} • eventy: ${(item.resolvedEvents || []).length}</div>
                 </div>
                 <div class="enhButtonRow" style="margin-top:0;">
-                  <button class="btnSmall" data-enh-history="restore" data-round="${item.roundNo}">Obnovit stav</button>
-                  <button class="btnSmall" data-enh-history="edit" data-round="${item.roundNo}">Upravit odtud</button>
-                  <button class="btnDanger" data-enh-history="delete" data-round="${item.roundNo}">Smazat kolo</button>
+                  <button class="btnSmall" data-enh-history="rewind" data-round="${item.roundNo}">Vratit pred kolo</button>
                 </div>
               </div>
               <div class="enhMuted" style="margin-top:8px;">${Object.entries(item.placements || {}).sort((a,b) => a[1] - b[1]).map(([teamId, place]) => {
@@ -420,7 +427,7 @@
         </section>
         <section class="enhPanel">
           <h3>Historie kol</h3>
-          <div class="enhMuted">Obnovit stav vrati aplikaci do zaznamenaneho bodu. Upravit a smazat vraci aplikaci na zacatek vybraneho kola, aby slo navazujici kola znovu prepocitat bez skrytych chyb.</div>
+          <div class="enhMuted">U kazdeho kola zustava jen bezpecny navrat na stav pred jeho zadanim. Kdyz se zapis povede spatne, vratite se pred vybrane kolo a zadate ho znovu.</div>
           <div id="enhHistoryPanel" style="margin-top:10px;"></div>
         </section>
         <section class="enhPanel">
@@ -1139,23 +1146,18 @@
     function handleHistory(action, roundNo){
       const state = getState();
       const archive = (state.roundArchive || []).find(item => Number(item.roundNo) === Number(roundNo));
-      if (!archive) return;
-      if (action === "restore" && archive.endSnapshot) {
-        app.restoreSnapshot(archive.endSnapshot);
-        app.showToast(`Obnoven stav po kole ${roundNo}.`);
-        return;
-      }
-      if (!archive.startSnapshot) return;
+      if (!archive || action !== "rewind" || !archive.startSnapshot) return;
       app.restoreSnapshot(archive.startSnapshot);
-      if (action === "edit") {
-        ui.draftPlacements = { ...(archive.placements || {}) };
-        ui.draftActivityName = archive.activityName || "";
-        app.showToast(`Kolo ${roundNo} pripraveno k nove editaci.`);
-      } else if (action === "delete") {
-        ui.draftPlacements = {};
-        ui.draftActivityName = "";
+      ui.draftPlacements = {};
+      ui.draftActivityName = "";
+      ui.selectedKidsTeamId = null;
+      ui.dragTeamId = null;
+      ui.lastRoundNumber = null;
+      app.showToast(`Aplikace vracena na stav pred kolem ${roundNo}.`);
+      /*
         app.showToast(`Kolo ${roundNo} bylo odriznuto a navazujici kola se otevřela k novemu prepocitani.`);
       }
+      */
       refresh();
     }
 
@@ -1245,6 +1247,13 @@
         if (action === "jump-current") {
           const field = document.getElementById("enhRoundNumber");
           if (field) field.focus();
+        }
+        if (action === "close-round") {
+          const result = app.closePendingRound && app.closePendingRound();
+          if (result?.status === "confirmed") app.showToast("Kolo potvrzeno a pokracuje k uzavreni.");
+          if (result?.status === "finished") app.showToast(`Kolo ${result.roundNo} uzavreno. Muzete zadavat dalsi.`);
+          if (result?.status === "events-pending") app.showToast("Nejdriv je potreba rozhodnout cekajici eventy tohoto kola.");
+          if (result?.status === "idle") app.showToast("Zadne rozpracovane kolo neni potreba uzavrit.");
         }
       }
 

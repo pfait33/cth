@@ -2378,6 +2378,30 @@ function buildPreviewCTHReportText(){
     showToast(`Připraveno: kolo ${state.round.number}.`);
   }
 
+  function closePendingRound(){
+    if (state.round.needsConfirm){
+      const closingRoundNo = state.round.number;
+      confirmRound();
+      return state.round.number !== closingRoundNo
+        ? { status:"finished", roundNo: closingRoundNo }
+        : { status:"confirmed", roundNo: closingRoundNo };
+    }
+
+    if (state.round.locked){
+      if (state.pending?.type === "event" || (state.round.eventQueue || []).length){
+        if (state.pending?.type === "event") modalBg.style.display = "flex";
+        else if ((state.round.eventQueue || []).length) openQueuedEventAtIndex(0);
+        return { status:"events-pending", roundNo: state.round.number };
+      }
+
+      const closingRoundNo = state.round.number;
+      finishRoundAndStartNext();
+      return { status:"finished", roundNo: closingRoundNo };
+    }
+
+    return { status:"idle", roundNo: state.round.number };
+  }
+
   function resetRoundState(keepNumber){
     state.round.moved = { mer:false, mcl:false, ast:false, fer:false, wil:false };
     state.round.placements = {};
@@ -3235,7 +3259,10 @@ function renderQueue(){
     getGlobalPenaltyCap,
     getEventRule,
     eventsCatalog: EVENTS,
+    closePendingRound,
     restoreSnapshot(snapshot){
+      closeRoundModal(true);
+      closeModal();
       state = normalizeState(snapshot);
       undoStack = [];
       dirty = true;
