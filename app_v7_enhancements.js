@@ -673,6 +673,8 @@
     function renderPublicPanelV2(state){
       const mount = document.getElementById("enhKidsPublicPanel");
       if (!mount) return;
+      const touchMode = isLikelyTouchDevice();
+      const selectedTeam = getSelectedKidsTeam(state);
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -803,6 +805,8 @@
     function renderPublicPanelV2(state){
       const mount = document.getElementById("enhKidsPublicPanel");
       if (!mount) return;
+      const touchMode = isLikelyTouchDevice();
+      const selectedTeam = getSelectedKidsTeam(state);
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -933,6 +937,8 @@
     function renderPublicPanelV2(state){
       const mount = document.getElementById("enhKidsPublicPanel");
       if (!mount) return;
+      const touchMode = isLikelyTouchDevice();
+      const selectedTeam = getSelectedKidsTeam(state);
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
