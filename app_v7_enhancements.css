@@ -241,6 +241,34 @@
   margin-top: 12px;
 }
 
+.kidsTouchBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+}
+
+.kidsTouchHint {
+  color: #e7ebf4;
+  font-size: 13px;
+}
+
+.kidsTouchBarActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kidsTouchButton {
+  min-height: 42px;
+}
+
 .kidsDraftLayout {
   display: grid;
   gap: 12px;
@@ -298,6 +326,14 @@
   gap: 8px;
 }
 
+.kidsDraftActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .kidsDraftSlot {
   display: grid;
   grid-template-columns: 58px 1fr;
@@ -315,6 +351,19 @@
 .kidsDraftSlot.drag-over {
   border-color: rgba(61,220,151,0.55);
   box-shadow: 0 0 0 2px rgba(61,220,151,0.18) inset;
+}
+
+.kidsSlotAssignButton {
+  width: 100%;
+  min-height: 42px;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.kidsSlotAssignButton.is-ready {
+  background: rgba(61,220,151,0.12);
+  border-color: rgba(61,220,151,0.35);
+  color: #d8fff0;
 }
 
 .kidsDraftPlace {
@@ -339,6 +388,8 @@
   background: linear-gradient(90deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
   border: 1px solid rgba(255,255,255,0.08);
   cursor: grab;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .kidsTeamLead {
@@ -385,6 +436,11 @@
   opacity: 0.45;
 }
 
+.kidsDraftTeam.is-selected {
+  border-color: rgba(61,220,151,0.65);
+  box-shadow: 0 0 0 2px rgba(61,220,151,0.16) inset, 0 0 0 1px rgba(61,220,151,0.18);
+}
+
 .kidsDraftMeta {
   color: var(--muted);
   font-size: 12px;
@@ -419,6 +475,11 @@
 .kidsRoundLogLine {
   color: #dce2ec;
   font-size: 12px;
+}
+
+.kidsTeamPickButton {
+  min-height: 40px;
+  min-width: 84px;
 }
 
 .enhCompactList {
@@ -459,5 +520,60 @@ body.mode-kids .kidsLayout {
   .kidsTopLayout,
   .kidsBottomLayout {
     grid-template-columns: 1fr;
+  }
+
+  .kidsDraftSlot {
+    grid-template-columns: 48px 1fr;
+    padding: 8px;
+  }
+
+  .kidsDraftPlace {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .kidsDraftTeam {
+    align-items: flex-start;
+    padding: 10px;
+  }
+
+  .kidsDraftActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .kidsSlotAssignButton,
+  .kidsTeamPickButton,
+  .kidsTouchButton,
+  .kidsDraftPanel .btnOk {
+    min-height: 46px;
+  }
+}
+
+@media (max-width: 640px) {
+  .kidsPublicHero {
+    grid-template-columns: 1fr;
+  }
+
+  .kidsTouchBar {
+    align-items: stretch;
+  }
+
+  .kidsTouchBarActions {
+    width: 100%;
+  }
+
+  .kidsTouchButton,
+  .kidsDraftPanel .btnOk {
+    width: 100%;
+  }
+
+  .kidsDraftLane {
+    gap: 10px;
+  }
+
+  .kidsDraftMeta {
+    font-size: 11px;
   }
 }

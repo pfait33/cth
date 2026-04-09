@@ -8,6 +8,7 @@
 
     const ui = {
       dragTeamId: null,
+      selectedKidsTeamId: null,
       draftPlacements: {},
       draftActivityName: "",
       lastRoundNumber: null,
@@ -67,6 +68,28 @@
         ui.draftPlacements[team.id] = state.round?.placements?.[team.id] ?? (index + 1);
       });
       ui.draftActivityName = state.round?.activityName || "";
+      if (!state.teams.some(team => team.id === ui.selectedKidsTeamId)) {
+        ui.selectedKidsTeamId = null;
+      }
+    }
+
+    function isLikelyTouchDevice(){
+      return !!(
+        (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) ||
+        ("ontouchstart" in window) ||
+        (navigator.maxTouchPoints > 0)
+      );
+    }
+
+    function getSelectedKidsTeam(state){
+      return state.teams.find(team => team.id === ui.selectedKidsTeamId) || null;
+    }
+
+    function assignKidsTeamToPlace(teamId, place){
+      if (!teamId || ![1,2,3,4,5].includes(place)) return;
+      ui.draftPlacements[teamId] = place;
+      ui.selectedKidsTeamId = teamId;
+      refresh();
     }
 
     function renderDashboard(state){
@@ -414,6 +437,8 @@
     function renderPublicPanelV2(state){
       const mount = document.getElementById("enhKidsPublicPanel");
       if (!mount) return;
+      const touchMode = isLikelyTouchDevice();
+      const selectedTeam = getSelectedKidsTeam(state);
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -953,6 +978,18 @@
             <button class="btnOk" data-enh-action="apply-kids-batch">Potvrdit po&#345;ad&iacute;</button>
           </div>
           <div class="enhMuted" style="margin-top:6px;">Na stejn&eacute; m&iacute;sto m&#367;&#382;e&scaron; um&iacute;stit v&iacute;c t&yacute;m&#367;. Vyhodnocen&iacute; prob&iacute;h&aacute; od posledn&iacute;ho t&yacute;mu v pr&#367;b&#283;&#382;n&eacute;m po&#345;ad&iacute; k prvn&iacute;mu.</div>
+          <div class="kidsTouchBar">
+            <div class="kidsTouchHint">
+              ${touchMode
+                ? (selectedTeam
+                  ? `Vybr&aacute;no pro p&#345;esun: <strong>${escapeHtml(selectedTeam.name)}</strong>. Klepni na tla&#269;&iacute;tko m&iacute;sta.`
+                  : "Telefon a tablet: klepni na t&yacute;m a potom na tla&#269;&iacute;tko m&iacute;sta.")
+                : "Na notebooku m&#367;&#382;e&scaron; t&yacute;my p&#345;etahovat. Klepnut&iacute;m se t&yacute;m tak&eacute; vybere pro rychl&yacute; p&#345;esun."}
+            </div>
+            <div class="kidsTouchBarActions">
+              ${selectedTeam ? `<button class="btnSmall kidsTouchButton" data-kids-clear-selection="1">Zru&scaron;it v&yacute;b&#283;r</button>` : ""}
+            </div>
+          </div>
           <div class="kidsTopLayout">
             <div class="kidsDraftArea">
               <div class="kidsDraftBoard">
@@ -960,8 +997,11 @@
                   <div class="kidsDraftSlot" data-kids-slot="${group.place}">
                     <div class="kidsDraftPlace">${group.place}.</div>
                     <div class="kidsDraftLane">
+                      <button class="btnSmall kidsSlotAssignButton ${selectedTeam ? "is-ready" : ""}" data-kids-slot-assign="${group.place}" ${selectedTeam ? "" : "disabled"}>
+                        ${selectedTeam ? `P&#345;esunout sem ${escapeHtml(selectedTeam.name)}` : `Vyber t&yacute;m pro ${group.place}. m&iacute;sto`}
+                      </button>
                       ${group.teams.length ? group.teams.map(team => `
-                        <div class="kidsDraftTeam" draggable="true" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
+                        <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${touchMode ? "false" : "true"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
                           <div class="kidsTeamLead">
                             <span class="kidsTeamLogo" style="--logo-accent:${getTeamBrand(team).accent};">${escapeHtml(getTeamBrand(team).mark)}</span>
                             <div>
@@ -969,10 +1009,15 @@
                                 <span class="kidsTeamWordmark">${escapeHtml(getTeamBrand(team).short)}</span>
                                 <strong>${escapeHtml(team.name)}</strong>
                               </div>
-                              <div class="kidsDraftMeta">${team.offTrack ? "Mimo tra&#357;" : `${team.total} pol&iacute;`} &bull; p&#345;et&aacute;hni na pozici</div>
+                              <div class="kidsDraftMeta">${team.offTrack ? "Mimo tra&#357;" : `${team.total} pol&iacute;`} &bull; ${touchMode ? "klepni a vyber m&iacute;sto" : "p&#345;et&aacute;hni nebo klepni"}</div>
                             </div>
                           </div>
-                          <div class="kidsDraftMeta kidsMetaPill">${team.offTrack ? "Mimo tra&#357;" : `P${group.place}`}</div>
+                          <div class="kidsDraftActions">
+                            <div class="kidsDraftMeta kidsMetaPill">${team.offTrack ? "Mimo tra&#357;" : `P${group.place}`}</div>
+                            <button class="btnSmall kidsTeamPickButton" data-kids-select-team="${team.id}">
+                              ${ui.selectedKidsTeamId === team.id ? "Vybr&aacute;no" : "Vybrat"}
+                            </button>
+                          </div>
                         </div>
                       `).join("") : `<div class="kidsDraftEmpty">Sem p&#345;et&aacute;hni t&yacute;m(y) na ${group.place}. m&iacute;sto</div>`}
                     </div>
@@ -1142,6 +1187,29 @@
     document.addEventListener("click", function(event){
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+      const kidsSelectButton = target.closest("[data-kids-select-team]");
+      if (kidsSelectButton) {
+        ui.selectedKidsTeamId = kidsSelectButton.getAttribute("data-kids-select-team");
+        refresh();
+        return;
+      }
+      const kidsTeamCard = target.closest(".kidsDraftTeam");
+      if (kidsTeamCard && !target.closest("[data-kids-slot-assign]")) {
+        ui.selectedKidsTeamId = kidsTeamCard.getAttribute("data-kids-team");
+        refresh();
+        return;
+      }
+      const kidsAssignButton = target.closest("[data-kids-slot-assign]");
+      if (kidsAssignButton) {
+        const place = parseInt(kidsAssignButton.getAttribute("data-kids-slot-assign"), 10);
+        assignKidsTeamToPlace(ui.selectedKidsTeamId, place);
+        return;
+      }
+      if (target.closest("[data-kids-clear-selection]")) {
+        ui.selectedKidsTeamId = null;
+        refresh();
+        return;
+      }
       const actionEl = target.closest("[data-enh-action]");
       if (actionEl) {
         const action = actionEl.getAttribute("data-enh-action");
@@ -1180,6 +1248,7 @@
       const row = event.target.closest(".enhDraftRow, .kidsDraftTeam");
       if (!row) return;
       ui.dragTeamId = row.getAttribute("data-team-id") || row.getAttribute("data-kids-team");
+      ui.selectedKidsTeamId = ui.dragTeamId;
       row.classList.add("dragging");
     });
 
@@ -1219,6 +1288,7 @@
         const place = parseInt(slot.getAttribute("data-kids-slot"), 10);
         if (![1,2,3,4,5].includes(place)) return;
         ui.draftPlacements[ui.dragTeamId] = place;
+        ui.selectedKidsTeamId = ui.dragTeamId;
       }
       refresh();
     });
