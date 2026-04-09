@@ -89,7 +89,6 @@
       if (!teamId || ![1,2,3,4,5].includes(place)) return;
       ui.draftPlacements[teamId] = place;
       ui.selectedKidsTeamId = teamId;
-      */
       refresh();
     }
 
@@ -1154,10 +1153,6 @@
       ui.dragTeamId = null;
       ui.lastRoundNumber = null;
       app.showToast(`Aplikace vracena na stav pred kolem ${roundNo}.`);
-      /*
-        app.showToast(`Kolo ${roundNo} bylo odriznuto a navazujici kola se otevřela k novemu prepocitani.`);
-      }
-      */
       refresh();
     }
 
