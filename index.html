@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="stylesheet" href="./app_v7_enhancements.css" />
   <title>Klondike F1 – Bodování CTH</title>
   <style>
     :root { --bg:#0b0c10; --card:#14161d; --muted:#8a90a2; --text:#eef0f6; --btn:#232738; --btn2:#2f3652; --danger:#d9534f; --ok:#3ddc97; }
@@ -88,7 +89,7 @@
 
 <body>
 <header>
-  <h1>Klondike F1 – Bodování CTH</h1>
+  <h1 id="appTitle">Klondike F1 – Bodování CTH</h1>
   <div class="actions">
     <button id="btnToggleUI">Rozbalit administraci</button>
     <button id="btnUndo" class="adminOnly">Zpět</button>
@@ -104,7 +105,7 @@
     <div class="row" style="justify-content:space-between; align-items:flex-end;">
       <div>
         <div class="muted">Okruh</div>
-        <div class="kidsTitle">VC Klondike</div>
+        <div class="kidsTitle" id="kidsRaceName">VC Klondike</div>
         <div class="muted" id="kidsRoundInfo" style="margin-top:4px;"></div>
       </div>
       <div class="chip">Dětské rozhraní</div>
@@ -138,7 +139,7 @@
 
   <div class="kidsRight">
     <div class="panel trackBox">
-      <div class="k">Ukazatel okruhu – VC Klondike</div>
+      <div class="k" id="kidsTrackTitle">Ukazatel okruhu – VC Klondike</div>
       <svg id="trackKids" viewBox="0 0 520 520" aria-label="Okruh VC Klondike"></svg>
       <div class="legend" id="legendKids"></div>
     </div>
@@ -152,7 +153,7 @@
       <div class="row" style="justify-content:space-between;">
         <div>
           <div class="muted">Okruh</div>
-          <div class="k">40 políček • události na polích: 3, 8, 13, 18, 23, 28, 33, 38</div>
+          <div class="k" id="trackMeta">40 políček • události na polích: 3, 8, 13, 18, 23, 28, 33, 38</div>
           <div class="muted" id="roundInfo" style="margin-top:4px;"></div>
           <div class="muted" id="saveInfo" style="margin-top:2px;"></div>
         </div>
@@ -351,10 +352,9 @@
 
 <script>
 (() => {
-  const TRACK_SIZE = 40;
-  const EVENT_TILES = new Set([3,8,13,18,23,28,33,38]);
-
-  const PLACE_TO_DELTA = { 1:5, 2:4, 3:3, 4:2, 5:1 };
+  const DEFAULT_TRACK_SIZE = 40;
+  const DEFAULT_EVENT_TILES = [3,8,13,18,23,28,33,38];
+  const DEFAULT_PLACE_TO_DELTA = { 1:5, 2:4, 3:3, 4:2, 5:1 };
   const START_PLACE_TO_TILE = (place) => (6 - place); // 1.->5, 2.->4, ... 5.->1
 
   const LS_KEY = "klondike_f1_cth_storage_v4"; // ponecháno kvůli kompatibilitě uložených dat
@@ -368,6 +368,75 @@
     return TOP_TEAM_MAX_NEG_EVENT_PER_ROUND_BY_THIRD[th] ?? -2;
   } // eventy v jednom kole max -2 u nejlepšího průměru
 
+  function sanitizeTrackSize(v){
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? clamp(n, 20, 120) : DEFAULT_TRACK_SIZE;
+  }
+
+  function sanitizeEventTiles(raw, trackSize){
+    const maxTile = Math.max(1, sanitizeTrackSize(trackSize) - 1);
+    const arr = Array.isArray(raw) ? raw : DEFAULT_EVENT_TILES;
+    const nums = arr
+      .map(x => parseInt(x, 10))
+      .filter(x => Number.isFinite(x) && x >= 1 && x <= maxTile);
+    return [...new Set(nums)].sort((a,b) => a - b);
+  }
+
+  function sanitizePlaceToDelta(raw){
+    const out = {};
+    for (const place of [1,2,3,4,5]){
+      const candidate = parseInt(raw?.[place] ?? DEFAULT_PLACE_TO_DELTA[place], 10);
+      out[place] = Number.isFinite(candidate) ? candidate : DEFAULT_PLACE_TO_DELTA[place];
+    }
+    return out;
+  }
+
+  function getSettings(){
+    state.settings = state.settings || {};
+    return state.settings;
+  }
+
+  function getRaceName(){
+    return String(getSettings().raceName || "VC Klondike").trim() || "VC Klondike";
+  }
+
+  function getTrackSize(){
+    return sanitizeTrackSize(getSettings().trackSize ?? DEFAULT_TRACK_SIZE);
+  }
+
+  function getEventTilesArray(){
+    return sanitizeEventTiles(getSettings().eventTiles ?? DEFAULT_EVENT_TILES, getTrackSize());
+  }
+
+  function getEventTilesSet(){
+    return new Set(getEventTilesArray());
+  }
+
+  function getPlaceToDeltaMap(){
+    return sanitizePlaceToDelta(getSettings().placeToDelta ?? DEFAULT_PLACE_TO_DELTA);
+  }
+
+  function getPlaceDelta(place){
+    return getPlaceToDeltaMap()[place] ?? 0;
+  }
+
+  function collisionsUseRandom(){
+    return getSettings().collisionRandom !== false;
+  }
+
+  function areAnimationsEnabled(){
+    return getSettings().animationsEnabled !== false;
+  }
+
+  function getAnimationSpeed(){
+    const n = Number(getSettings().animationSpeed ?? 1);
+    return Number.isFinite(n) ? clamp(n, 0.5, 3) : 1;
+  }
+
+  function getCollisionAnimDurationMs(){
+    return Math.max(800, Math.round(3000 / getAnimationSpeed()));
+  }
+
   let undoStack = [];
   let dirty = false;
 
@@ -375,6 +444,16 @@
     version: 5,
     phase: "seed", // "seed" | "race"
     lastSavedAt: null,
+    settings: {
+      raceName: "VC Klondike",
+      trackSize: DEFAULT_TRACK_SIZE,
+      eventTiles: [...DEFAULT_EVENT_TILES],
+      placeToDelta: { ...DEFAULT_PLACE_TO_DELTA },
+      collisionRandom: true,
+      animationsEnabled: true,
+      animationSpeed: 1,
+      eventRules: {}
+    },
     teams: [
       { id:"mer", name:"Mercedes",     color:"#00D2BE", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
       { id:"mcl", name:"McLaren",      color:"#FF8700", baseTotal:0, total:0, offTrack:true, mod:{deferred:0, capNext:null}, stats:{lastPlaces:[]} },
@@ -385,6 +464,7 @@
     history: [],
     cthLog: [], // finální reporty po uzavření kola (po událostech)
     games: [], // tabulka her: [{no,name,roundNo,placements}]
+    roundArchive: [],
     rubber: { neutralChance: 0.15 }, // neutrální bucket dle zadání (15 %)
     eventThird: 1, // 1|2|3 (ruční přepínač třetin)
     round: {
@@ -395,6 +475,9 @@
       moved: { mer:false, mcl:false, ast:false, fer:false, wil:false },
       placements: {},      // teamId -> place
       deltas: {},          // teamId -> delta used (1-5 map)
+      collisionLog: [],
+      previewEvents: [],
+      startSnapshot: null,
       eventQueue: [],      // po uzavření kola: {teamId, ev, round, tile}
       eventDeltaApplied: {}, // teamId -> sum event delta v tomto kole (pro limit top týmu)
       resolvedEvents: []     // {teamId, title, applied, effectText}
@@ -412,6 +495,8 @@
   const elLeaderInfo = document.getElementById("leaderInfo");
   const elRoundInfo = document.getElementById("roundInfo");
   const elSaveInfo = document.getElementById("saveInfo");
+  const elAppTitle = document.getElementById("appTitle");
+  const elTrackMeta = document.getElementById("trackMeta");
   const elStandings = document.getElementById("standings");
   const elQueueInfo = document.getElementById("queueInfo");
   const elQueueList = document.getElementById("queueList");
@@ -422,6 +507,8 @@
   const elKidsView = document.getElementById("kidsView");
   const elAdminView = document.getElementById("adminView");
   const btnToggleUI = document.getElementById("btnToggleUI");
+  const elKidsRaceName = document.getElementById("kidsRaceName");
+  const elKidsTrackTitle = document.getElementById("kidsTrackTitle");
   const elKidsRoundInfo = document.getElementById("kidsRoundInfo");
   const elStandingsKids = document.getElementById("standingsKids");
   const elKidsInputs = document.getElementById("kidsInputs");
@@ -431,6 +518,8 @@
 
   const UI_KEY = "klondike_f1_ui_mode_v1"; // "kids" | "admin"
   let uiMode = (localStorage.getItem(UI_KEY) || "kids");
+  if (location.hash === "#admin") uiMode = "admin";
+  if (location.hash === "#kids") uiMode = "kids";
 
   function applyUIMode(){
     const kids = (uiMode === "kids");
@@ -595,12 +684,70 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     ]
   };
 
+  function getEventRule(ev){
+    const raw = getSettings().eventRules?.[ev.key] || {};
+    const tiles = Array.isArray(raw.tiles) ? sanitizeEventTiles(raw.tiles, getTrackSize()) : [];
+    const weight = Number(raw.weight ?? 1);
+    return {
+      enabled: raw.enabled !== false,
+      weight: Number.isFinite(weight) ? clamp(weight, 0, 10) : 1,
+      tiles
+    };
+  }
+
+  function getEligibleEventPool(bucket, opts){
+    const tile = opts?.tile;
+    const wantGlobal = !!opts?.wantGlobal;
+    const all = (EVENTS[bucket] || []).filter(ev => wantGlobal ? ev.kind.startsWith("global") : !ev.kind.startsWith("global"));
+    const eligible = all.filter(ev => {
+      const rule = getEventRule(ev);
+      if (!rule.enabled) return false;
+      if (rule.tiles.length && tile != null && !rule.tiles.includes(tile)) return false;
+      return true;
+    });
+    if (eligible.length) return eligible;
+    const fallback = all.filter(ev => getEventRule(ev).enabled !== false);
+    return fallback.length ? fallback : all;
+  }
+
+  function pickConfiguredEvent(pool){
+    if (!pool.length) return null;
+    const weighted = pool.map(ev => ({ ev, w: Math.max(0.001, getEventRule(ev).weight) }));
+    const total = weighted.reduce((sum, item) => sum + item.w, 0);
+    let r = Math.random() * total;
+    for (const item of weighted){
+      r -= item.w;
+      if (r <= 0) return item.ev;
+    }
+    return weighted[weighted.length - 1].ev;
+  }
+
 // ---------- Helpers ----------
   function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
   function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
   function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
   function nowIso(){ return new Date().toISOString(); }
   function avg(arr){ return (!arr || !arr.length) ? null : (arr.reduce((a,b)=>a+b,0) / arr.length); }
+
+  function snapshotRoundArchiveEntries(entries){
+    return (Array.isArray(entries) ? entries : []).map(entry => ({
+      ...deepClone(entry),
+      startSnapshot: null,
+      endSnapshot: null
+    }));
+  }
+
+  function snapshotState(){
+    const snap = deepClone(state);
+    snap.pending = null;
+    if (snap.round) snap.round.startSnapshot = null;
+    snap.roundArchive = snapshotRoundArchiveEntries(snap.roundArchive);
+    return snap;
+  }
+
+  function ensureRoundStartSnapshot(){
+    if (!state.round.startSnapshot) state.round.startSnapshot = snapshotState();
+  }
 
   // ---------- Vyvažování událostí: ruční třetiny ----------
   // pSetb = absolutní pravděpodobnost bucketu SETBACK (z celého losu), pNeutral typicky 0.15, zbytek je BOOST.
@@ -611,6 +758,74 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     3: { label:"3. třetina", setbackByRank:[0.50, 0.45, 0.40, 0.35, 0.30] },
   };
 
+  const EVENT_BALANCE_PROFILES = {
+    1: {
+      label:"1. tĹ™etina",
+      bucketByRank: [
+        { pBoost:0.30, pNeutral:0.20, pSetb:0.50 },
+        { pBoost:0.34, pNeutral:0.20, pSetb:0.46 },
+        { pBoost:0.40, pNeutral:0.20, pSetb:0.40 },
+        { pBoost:0.46, pNeutral:0.20, pSetb:0.34 },
+        { pBoost:0.50, pNeutral:0.20, pSetb:0.30 }
+      ],
+      globalChance: 0.18,
+      globalPenaltyCap: 2,
+      safetyCarRemaining: 0.72,
+      maxSafetyCarBoostRatio: 0.28,
+      phaseFactor: 0.90
+    },
+    2: {
+      label:"2. tĹ™etina",
+      bucketByRank: [
+        { pBoost:0.18, pNeutral:0.18, pSetb:0.64 },
+        { pBoost:0.24, pNeutral:0.18, pSetb:0.58 },
+        { pBoost:0.36, pNeutral:0.18, pSetb:0.46 },
+        { pBoost:0.48, pNeutral:0.18, pSetb:0.34 },
+        { pBoost:0.56, pNeutral:0.18, pSetb:0.26 }
+      ],
+      globalChance: 0.28,
+      globalPenaltyCap: 4,
+      safetyCarRemaining: 0.42,
+      maxSafetyCarBoostRatio: 0.48,
+      phaseFactor: 1.18
+    },
+    3: {
+      label:"3. tĹ™etina",
+      bucketByRank: [
+        { pBoost:0.20, pNeutral:0.60, pSetb:0.20 },
+        { pBoost:0.21, pNeutral:0.58, pSetb:0.21 },
+        { pBoost:0.22, pNeutral:0.56, pSetb:0.22 },
+        { pBoost:0.23, pNeutral:0.54, pSetb:0.23 },
+        { pBoost:0.24, pNeutral:0.52, pSetb:0.24 }
+      ],
+      globalChance: 0.08,
+      globalPenaltyCap: 1,
+      safetyCarRemaining: 0.86,
+      maxSafetyCarBoostRatio: 0.16,
+      phaseFactor: 0.45
+    }
+  };
+
+  function getEventThirdProfile(){
+    return EVENT_BALANCE_PROFILES[getEventThird()] || EVENT_BALANCE_PROFILES[1];
+  }
+
+  function getBucketProfileForRank(rank){
+    const prof = getEventThirdProfile();
+    const safeRank = clamp(parseInt(rank, 10) || 3, 1, 5);
+    const raw = prof.bucketByRank?.[safeRank - 1] || prof.bucketByRank?.[2] || { pBoost:0.33, pNeutral:0.34, pSetb:0.33 };
+    const pBoost = clamp(Number(raw.pBoost ?? 0), 0, 1);
+    const pNeutral = clamp(Number(raw.pNeutral ?? 0), 0, 1);
+    const pSetb = clamp(Number(raw.pSetb ?? 0), 0, 1);
+    const total = pBoost + pNeutral + pSetb;
+    if (total <= 0) return { pBoost:0.33, pNeutral:0.34, pSetb:0.33 };
+    return {
+      pBoost: pBoost / total,
+      pNeutral: pNeutral / total,
+      pSetb: pSetb / total
+    };
+  }
+
   function getEventThird(){
     const v = parseInt(state.eventThird ?? 1, 10);
     return (v === 1 || v === 2 || v === 3) ? v : 1;
@@ -620,6 +835,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     if (v !== 1 && v !== 2 && v !== 3) return;
     const cur = getEventThird();
     if (cur === v) return;
+    ensureRoundStartSnapshot();
     undoStack.push(deepClone(state));
     state.eventThird = v;
     dirty = true;
@@ -633,8 +849,8 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
   function teamLapTile(team){
     if (team.offTrack) return { lap: 0, tile: null };
-    const lap = Math.floor(team.total / TRACK_SIZE);
-    const tile = ((team.total % TRACK_SIZE) + TRACK_SIZE) % TRACK_SIZE;
+    const lap = Math.floor(team.total / getTrackSize());
+    const tile = ((team.total % getTrackSize()) + getTrackSize()) % getTrackSize();
     return { lap, tile };
   }
 
@@ -715,6 +931,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
   function rollEventForTeam(team){
     const { pBoost, pNeutral, pSetb } = bucketWeightsForTeam(team);
+    const tile = teamLapTile(team).tile;
 
     const bucket = pickWeighted([
       { v:"BOOST", w:pBoost },
@@ -724,16 +941,8 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
     const isGlobal = Math.random() < getGlobalChance(state.round.number);
 
-    let pool = EVENTS[bucket];
-    if (isGlobal){
-      const g = pool.filter(e => e.kind.startsWith("global"));
-      if (g.length) pool = g;
-    } else {
-      const l = pool.filter(e => !e.kind.startsWith("global"));
-      if (l.length) pool = l;
-    }
-
-    const base = pool[Math.floor(Math.random() * pool.length)];
+    const pool = getEligibleEventPool(bucket, { tile, wantGlobal: isGlobal });
+    const base = pickConfiguredEvent(pool) || EVENTS[bucket][0];
     const out = { bucket, ...base };
 
     // Neutrální události: vždy přiděl táborový efekt + úkol a ZOBRAZ ho v modalu i historii
@@ -754,9 +963,9 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   // ---------- Delta application ----------
   function applyDeltaBase(team, delta){
     if (team.offTrack) return { deltaApplied: 0, lapsGained: 0 };
-    const beforeLap = Math.floor(team.total / TRACK_SIZE);
+    const beforeLap = Math.floor(team.total / getTrackSize());
     team.total = Math.max(0, team.total + delta);
-    const afterLap = Math.floor(team.total / TRACK_SIZE);
+    const afterLap = Math.floor(team.total / getTrackSize());
     return { deltaApplied: delta, lapsGained: afterLap - beforeLap };
   }
 
@@ -822,7 +1031,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     // Kolik z původní ztráty necháme po Safety Car (nižší = silnější komprese)
     const remaining = (third===1)?0.55 : (third===2)?0.35 : 0.65;
     // Maximální posun vpřed (aby to nebyl úplný teleport), škálujeme dle délky tratě
-    const maxBoost = Math.round(TRACK_SIZE * (third===2 ? 0.65 : 0.55));
+    const maxBoost = Math.round(getTrackSize() * (third===2 ? 0.65 : 0.55));
 
     for (let i=1; i<ordered.length; i++){
       const t = ordered[i];
@@ -1133,7 +1342,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function enqueueCollisionAnim(teamTop, teamBottom, winnerTeam){
-    if (!COLLISION_ANIM_CFG.enabled) return;
+    if (!areAnimationsEnabled()) return;
     if (!teamTop || !teamBottom || !winnerTeam) return;
 
     collisionAnim.queue.push({
@@ -1176,6 +1385,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     const P_top = paletteForTeam(item.top);
     const P_bot = paletteForTeam(item.bottom);
 
+    const animDurationMs = getCollisionAnimDurationMs();
     const PASS_GAP = COLLISION_ANIM_CFG.passGap;
     const PASS_START = COLLISION_ANIM_CFG.passStart;
     const PASS_END = COLLISION_ANIM_CFG.passEnd;
@@ -1191,7 +1401,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
     // UI text
     if (collisionAnim.titleEl) collisionAnim.titleEl.textContent = `Kolize: ${item.top.name} × ${item.bottom.name}`;
-    if (collisionAnim.subEl) collisionAnim.subEl.textContent = `Vyhrál: ${winnerName}. Klikni na „Spustit předjetí“.`;
+    if (collisionAnim.subEl) collisionAnim.subEl.textContent = `Kolize se vyhodnoti v animaci. Klikni na „Spustit předjetí“.`;
     const btn = collisionAnim.startBtn;
 
     // draw initial frame (no movement)
@@ -1210,7 +1420,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
         btn.textContent = "Předjíždění…";
 
         // start sound (best effort – musí být po kliknutí)
-        const ac = startChiptuneOnce(COLLISION_ANIM_CFG.durationMs);
+        const ac = startChiptuneOnce(animDurationMs);
 
         // init at pass start
         let passInit = false;
@@ -1285,7 +1495,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
           drawOvertakeCar(ctx, Math.round(topX), Math.round(topY), P_top);
           drawOvertakeCar(ctx, Math.round(botX), Math.round(botY), P_bot);
 
-          if (t < (COLLISION_ANIM_CFG.durationMs/1000)){
+          if (t < (animDurationMs/1000)){
             raf = requestAnimationFrame(frame);
           } else {
             if (raf) cancelAnimationFrame(raf);
@@ -1328,8 +1538,19 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       let overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.sort((a,b)=>b.total-a.total)[0];
       let defender = colliders.filter(t => t.id !== overtaker.id).sort((a,b)=>b.total-a.total)[0];
 
-      const winner = (Math.random() < 0.6) ? overtaker : defender;
+      const winner = collisionsUseRandom()
+        ? ((Math.random() < 0.6) ? overtaker : defender)
+        : overtaker;
       const r = applyForcedDelta(winner, +1);
+      state.round.collisionLog = state.round.collisionLog || [];
+      state.round.collisionLog.unshift({
+        ts: nowIso(),
+        a: overtaker.name,
+        b: defender.name,
+        tile: collisionTile,
+        winner: winner.name,
+        mode: collisionsUseRandom() ? "60:40" : "deterministic"
+      });
 
       state.history.unshift({
         ts: nowIso(),
@@ -1364,6 +1585,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       return;
     }
 
+    ensureRoundStartSnapshot();
     undoStack.push(deepClone(state));
     dirty = true;
 
@@ -1490,6 +1712,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       return;
     }
 
+    ensureRoundStartSnapshot();
     undoStack.push(deepClone(state));
     dirty = true;
 
@@ -1498,15 +1721,136 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       return;
     }
 
-    const delta = PLACE_TO_DELTA[place];
+    const delta = getPlaceDelta(place);
     moveTeamInternal(teamId, delta, { source:`Umístění ${place}. místo`, mode:"placement", countAsRoundMove:true, place });
     render();
+  }
+
+  function getBatchExecutionOrder(placements){
+    const rankOrder = getRanks().slice().reverse().map((team, index) => [team.id, index]);
+    const rankMap = new Map(rankOrder);
+    return state.teams
+      .map((team, index) => ({
+        teamId: team.id,
+        place: parseInt(placements?.[team.id], 10),
+        total: team?.total ?? 0,
+        rankFromBack: rankMap.has(team.id) ? rankMap.get(team.id) : index
+      }))
+      .filter(item => [1,2,3,4,5].includes(item.place))
+      .sort((a,b) => (a.rankFromBack - b.rankFromBack) || (a.place - b.place) || a.teamId.localeCompare(b.teamId));
+  }
+
+  function validateBatchPlacements(placements){
+    const issues = [];
+    for (const t of state.teams){
+      const place = parseInt(placements?.[t.id], 10);
+      if (![1,2,3,4,5].includes(place)) issues.push(`${t.name}: chybi poradi`);
+    }
+    return { ok: issues.length === 0, issues };
+  }
+
+  function buildBatchRoundPreview(placements){
+    const validation = validateBatchPlacements(placements);
+    if (!validation.ok) return { ok:false, issues:validation.issues, order:[], collisions:[], eventTiles:[], standings:[] };
+
+    const teams = deepClone(state.teams);
+    const trackSize = getTrackSize();
+    const eventTiles = getEventTilesSet();
+    const collisions = [];
+    const order = getBatchExecutionOrder(placements);
+
+    function findTeam(teamId){ return teams.find(t => t.id === teamId); }
+    function lapTile(team){
+      if (team.offTrack) return { lap:0, tile:null };
+      const lap = Math.floor(team.total / trackSize);
+      const tile = ((team.total % trackSize) + trackSize) % trackSize;
+      return { lap, tile };
+    }
+    function applyPlacementDeltaSim(team, delta){
+      if (team.offTrack) return 0;
+      let next = delta;
+      if (team.mod?.deferred){
+        next += team.mod.deferred;
+        team.mod.deferred = 0;
+      }
+      if (team.mod?.capNext != null){
+        if (next > team.mod.capNext) next = team.mod.capNext;
+        team.mod.capNext = null;
+      }
+      team.total = Math.max(0, team.total + next);
+      return next;
+    }
+    function resolvePreviewCollisions(triggerOvertakerId){
+      let guard = 100;
+      while (guard-- > 0){
+        const groups = new Map();
+        teams.filter(t => !t.offTrack).forEach(t => {
+          const tile = lapTile(t).tile;
+          if (!groups.has(tile)) groups.set(tile, []);
+          groups.get(tile).push(t);
+        });
+        let collisionTile = null, colliders = null;
+        for (const [tile, arr] of groups.entries()){
+          if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
+        }
+        if (!colliders) return;
+        const overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.slice().sort((a,b)=>b.total-a.total)[0];
+        const defender = colliders.filter(t => t.id !== overtaker.id).slice().sort((a,b)=>b.total-a.total)[0];
+        overtaker.total = Math.max(0, overtaker.total + 1);
+        collisions.push({
+          tile: collisionTile,
+          a: overtaker.name,
+          b: defender.name,
+          previewWinner: overtaker.name,
+          resolution: collisionsUseRandom() ? "60:40 ve prospech predjizdejiciho" : "deterministicky postup predjizdejiciho"
+        });
+        triggerOvertakerId = overtaker.id;
+      }
+    }
+
+    order.forEach(item => {
+      const team = findTeam(item.teamId);
+      if (!team) return;
+      if (state.phase === "seed"){
+        team.offTrack = false;
+        team.total = START_PLACE_TO_TILE(item.place);
+      } else {
+        applyPlacementDeltaSim(team, getPlaceDelta(item.place));
+      }
+      resolvePreviewCollisions(item.teamId);
+    });
+
+    const standings = teams
+      .filter(t => !t.offTrack)
+      .sort((a,b) => b.total - a.total)
+      .map((t, idx) => ({ rank: idx + 1, teamId: t.id, name: t.name, total: t.total, ...lapTile(t) }));
+    const eventHits = teams
+      .filter(t => !t.offTrack)
+      .map(t => ({ teamId:t.id, name:t.name, ...lapTile(t) }))
+      .filter(t => t.tile != null && eventTiles.has(t.tile));
+
+    return { ok:true, issues:[], order, collisions, eventTiles:eventHits, standings };
+  }
+
+  function applyBatchRound(placements, activityName){
+    const validation = validateBatchPlacements(placements);
+    if (!validation.ok){
+      showToast("Hromadne zadani neni kompletni.");
+      return validation;
+    }
+    if (activityName != null){
+      state.round.activityName = String(activityName || "").trim();
+      if (elActivityName) elActivityName.value = state.round.activityName;
+    }
+    getBatchExecutionOrder(placements).forEach(item => applyPlacement(item.teamId, item.place));
+    return { ok:true };
   }
 
   function buildEventQueueForRound(){
     state.round.eventQueue = [];
     state.round.resolvedEvents = [];
     state.round.eventDeltaApplied = state.round.eventDeltaApplied || {};
+    state.round.previewEvents = [];
 
     // Výjimka: v 1. kole se události nevyhodnocují.
     if (state.round.number === 1) return;
@@ -1516,10 +1860,12 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     for (const t of onTrack){
       const { tile } = teamLapTile(t);
       if (tile == null) continue;
-      if (!EVENT_TILES.has(tile)) continue;
+      if (!getEventTilesSet().has(tile)) continue;
 
       const ev = rollEventForTeam(t);
-      state.round.eventQueue.push({ teamId: t.id, ev, round: state.round.number, tile });
+      const item = { teamId: t.id, ev, round: state.round.number, tile };
+      state.round.eventQueue.push(item);
+      state.round.previewEvents.push(deepClone(item));
     }
   }
 
@@ -1926,7 +2272,7 @@ function buildPreviewCTHReportText(){
     const team = state.teams.find(t => t.id === teamId);
     if (!team || !bucket || !EVENTS[bucket] || !EVENTS[bucket].length) return;
 
-    const evRaw = EVENTS[bucket][Math.floor(Math.random() * EVENTS[bucket].length)];
+    const evRaw = pickConfiguredEvent(getEligibleEventPool(bucket, { tile: teamLapTile(team).tile, wantGlobal: false })) || EVENTS[bucket][0];
     const ev = { bucket, ...evRaw };
 
     // Neutrální události: doplň táborový efekt + úkol (aby se zobrazil při vyhodnocení)
@@ -1993,6 +2339,20 @@ function buildPreviewCTHReportText(){
     const finalTxt = buildFinalCTHReportText(finishedRoundNo, resolvedEvents);
     state.cthLog = state.cthLog || [];
     state.cthLog.unshift({ round: finishedRoundNo, text: finalTxt, ts: nowIso() });
+    state.roundArchive = Array.isArray(state.roundArchive) ? state.roundArchive : [];
+    state.roundArchive.push({
+      roundNo: finishedRoundNo,
+      activityName: state.round.activityName || ((finishedRoundNo === 1) ? "Startovní nasazení" : `Hra ${finishedRoundNo}`),
+      placements: deepClone(state.round.placements),
+      deltas: deepClone(state.round.deltas),
+      collisions: deepClone(state.round.collisionLog || []),
+      plannedEvents: deepClone(state.round.previewEvents || []),
+      resolvedEvents: deepClone(resolvedEvents),
+      finalReport: finalTxt,
+      startSnapshot: state.round.startSnapshot ? deepClone(state.round.startSnapshot) : null,
+      endSnapshot: snapshotState(),
+      ts: nowIso()
+    });
 
     state.round.locked = false;
     state.round.needsConfirm = false;
@@ -2022,6 +2382,9 @@ function buildPreviewCTHReportText(){
     state.round.moved = { mer:false, mcl:false, ast:false, fer:false, wil:false };
     state.round.placements = {};
     state.round.deltas = {};
+    state.round.collisionLog = [];
+    state.round.previewEvents = [];
+    state.round.startSnapshot = null;
     state.round.eventQueue = [];
     state.round.eventDeltaApplied = {};
     state.round.resolvedEvents = [];
@@ -2112,6 +2475,9 @@ function buildPreviewCTHReportText(){
     out.round.moved = out.round.moved || base.round.moved;
     out.round.placements = out.round.placements || {};
     out.round.deltas = out.round.deltas || {};
+    out.round.collisionLog = Array.isArray(out.round.collisionLog) ? out.round.collisionLog : [];
+    out.round.previewEvents = Array.isArray(out.round.previewEvents) ? out.round.previewEvents : [];
+    if (out.round.startSnapshot === undefined) out.round.startSnapshot = null;
     out.round.eventQueue = out.round.eventQueue || [];
     out.round.eventDeltaApplied = out.round.eventDeltaApplied || {};
     out.round.resolvedEvents = out.round.resolvedEvents || [];
@@ -2121,7 +2487,17 @@ function buildPreviewCTHReportText(){
     if (out.phase !== "seed" && out.phase !== "race") out.phase = "race";
     if (!out.cthLog) out.cthLog = [];
     if (!out.games || !Array.isArray(out.games)) out.games = [];
+    if (!out.roundArchive || !Array.isArray(out.roundArchive)) out.roundArchive = [];
     if (!out.rubber) out.rubber = base.rubber;
+    out.settings = {
+      ...base.settings,
+      ...(out.settings || {})
+    };
+    out.settings.trackSize = sanitizeTrackSize(out.settings.trackSize);
+    out.settings.eventTiles = sanitizeEventTiles(out.settings.eventTiles, out.settings.trackSize);
+    out.settings.placeToDelta = sanitizePlaceToDelta(out.settings.placeToDelta);
+    out.settings.animationSpeed = Number.isFinite(Number(out.settings.animationSpeed)) ? clamp(Number(out.settings.animationSpeed), 0.5, 3) : 1;
+    out.settings.eventRules = out.settings.eventRules && typeof out.settings.eventRules === "object" ? out.settings.eventRules : {};
 
     const third = parseInt(out.eventThird ?? 1, 10);
     out.eventThird = (third === 1 || third === 2 || third === 3) ? third : 1;
@@ -2159,6 +2535,7 @@ function buildPreviewCTHReportText(){
 
   // ---------- Rendering ----------
   function render(){
+    renderRaceLabels();
     renderManualTeamSelect();
     renderRoundInfo();
     renderSaveInfo();
@@ -2176,6 +2553,17 @@ function buildPreviewCTHReportText(){
     renderStandingsKids();
     renderKidsInputs();
     renderKidsCollisions();
+    if (typeof window.__cthEnhancementsRender === "function") window.__cthEnhancementsRender();
+  }
+
+  function renderRaceLabels(){
+    const raceName = getRaceName();
+    const eventTiles = getEventTilesArray().join(", ");
+    if (elAppTitle) elAppTitle.textContent = `${raceName} - Bodovani CTH`;
+    if (elKidsRaceName) elKidsRaceName.textContent = raceName;
+    if (elKidsTrackTitle) elKidsTrackTitle.textContent = `Ukazatel okruhu - ${raceName}`;
+    if (elTrackMeta) elTrackMeta.textContent = `${getTrackSize()} policek • udalosti na polich: ${eventTiles || "zadna"}`;
+    document.title = `${raceName} - Bodovani CTH`;
   }
 
   function renderSaveInfo(failed){
@@ -2630,7 +3018,7 @@ function renderQueue(){
       const { tile } = teamLapTile(t);
       if (!tileTeams.has(tile)) tileTeams.set(tile, []);
       tileTeams.get(tile).push(t);
-      if (EVENT_TILES.has(tile)) activeEventTiles.add(tile);
+      if (getEventTilesSet().has(tile)) activeEventTiles.add(tile);
     }
 
     const parts = [];
@@ -2649,7 +3037,7 @@ function renderQueue(){
     const gMarkers = svg.querySelector("#markers");
 
     const L = path.getTotalLength();
-    const step = L / TRACK_SIZE;
+    const step = L / getTrackSize();
 
     function unitNormalAt(len){
       const p1 = path.getPointAtLength(Math.max(0, len - 2));
@@ -2670,7 +3058,7 @@ function renderQueue(){
     }
 
     let tickSvg = "";
-    for (let i=0; i<TRACK_SIZE; i++){
+    for (let i=0; i<getTrackSize(); i++){
       const len = i * step;
       const p = path.getPointAtLength(len);
       const { nx, ny } = unitNormalAt(len);
@@ -2681,7 +3069,7 @@ function renderQueue(){
       const x2 = p.x + nx * (tLen/2);
       const y2 = p.y + ny * (tLen/2);
 
-      const isEvent = EVENT_TILES.has(i);
+      const isEvent = getEventTilesSet().has(i);
       const isActive = activeEventTiles.has(i);
 
       const stroke = isActive ? "rgba(255,255,255,0.95)" : (isEvent ? "rgba(255,255,255,0.70)" : "rgba(255,255,255,0.22)");
@@ -2723,6 +3111,140 @@ function renderQueue(){
     showToast._t = setTimeout(() => toast.style.display = "none", 1700);
   }
 
+  // ---------- Event balancing overrides ----------
+  function getPhaseFactor(roundNo){
+    return getEventThirdProfile().phaseFactor ?? 1.0;
+  }
+
+  function getGlobalChance(roundNo){
+    return clamp(getEventThirdProfile().globalChance ?? 0.18, 0, 1);
+  }
+
+  function getGlobalPenaltyCap(roundNo){
+    return clamp(Math.round(getEventThirdProfile().globalPenaltyCap ?? 2), 1, 5);
+  }
+
+  function bucketWeightsForTeam(team){
+    const ordered = getRanks().filter(t => !t.offTrack);
+    const idx = ordered.findIndex(t => t.id === team.id);
+    const rank = (idx >= 0) ? (idx + 1) : 3;
+    return getBucketProfileForRank(rank);
+  }
+
+  function computeSafetyCarCompressionDeltas(ordered){
+    const map = new Map();
+    ordered.forEach(t => map.set(t.id, 0));
+    if (ordered.length < 2) return map;
+
+    const leader = ordered[0];
+    const prof = getEventThirdProfile();
+    const remaining = clamp(prof.safetyCarRemaining ?? 0.65, 0.2, 0.95);
+    const maxBoost = Math.round(getTrackSize() * clamp(prof.maxSafetyCarBoostRatio ?? 0.3, 0.08, 0.75));
+
+    for (let i=1; i<ordered.length; i++){
+      const t = ordered[i];
+      const gap = Math.max(0, leader.total - t.total);
+      const targetGap = Math.round(gap * remaining);
+      let boost = gap - targetGap;
+      boost = clamp(boost, 0, maxBoost);
+      map.set(t.id, boost);
+    }
+    return map;
+  }
+
+  function renderEventPhasePanel(){
+    const third = getEventThird();
+    btnPhase1.classList.toggle("active", third === 1);
+    btnPhase2.classList.toggle("active", third === 2);
+    btnPhase3.classList.toggle("active", third === 3);
+
+    const ranks = getRanks();
+    const prof = getEventThirdProfile();
+
+    const rowsHtml = ranks.map((t, i) => {
+      const rank = i + 1;
+      const { pBoost, pNeutral, pSetb } = getBucketProfileForRank(rank);
+
+      const dot = `<span class="dot" style="background:${t.color}"></span>`;
+      const name = escapeHtml(t.name);
+      return `
+        <tr>
+          <td><b>${rank}.</b></td>
+          <td style="display:flex; align-items:center; gap:8px;">${dot}<span>${name}</span></td>
+          <td>${fmtPct(pBoost)}</td>
+          <td>${fmtPct(pNeutral)}</td>
+          <td>${fmtPct(pSetb)}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const gc = Math.round(getGlobalChance(state.round.number) * 100);
+    const cap = getGlobalPenaltyCap(state.round.number);
+    const pf = getPhaseFactor(state.round.number);
+
+    elPhaseTableWrap.innerHTML = `
+      <table class="phaseTable">
+        <thead>
+          <tr>
+            <th>PoĹ™adĂ­</th>
+            <th>TĂ˝m</th>
+            <th>BOOST</th>
+            <th>NEUTRAL</th>
+            <th>SETBACK</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div class="tinyNote">
+        Profil: <b>${escapeHtml(prof.label)}</b> â€˘ globĂˇlnĂ­ udĂˇlosti ~ <b>${gc} %</b> â€˘ max penalizace gapĹŻ <b>-${cap}</b> â€˘ komprese <b>${pf.toFixed(2)}</b>
+      </div>
+    `;
+  }
+
+  window.__cthApp = {
+    getState: () => state,
+    getClonedState: () => deepClone(state),
+    setState(nextState){
+      state = normalizeState(nextState);
+      dirty = true;
+      persist(true);
+      render();
+      return state;
+    },
+    normalizeState,
+    deepClone,
+    persist,
+    render,
+    showToast,
+    applyPlacement,
+    applyBatchRound,
+    buildBatchRoundPreview,
+    validateBatchPlacements,
+    getBatchExecutionOrder,
+    teamLapTile,
+    getRanks,
+    getPlaceDelta,
+    getTrackSize,
+    getEventTilesArray,
+    getRaceName,
+    getEventThird,
+    getEventThirdProfile,
+    getBucketProfileForRank,
+    bucketWeightsForTeam,
+    getGlobalChance,
+    getGlobalPenaltyCap,
+    getEventRule,
+    eventsCatalog: EVENTS,
+    restoreSnapshot(snapshot){
+      state = normalizeState(snapshot);
+      undoStack = [];
+      dirty = true;
+      persist(true);
+      render();
+      return state;
+    }
+  };
+
   // ---------- Init ----------
   function init(){
     applyUIMode();
@@ -2743,5 +3265,6 @@ function renderQueue(){
   init();
 })();
 </script>
+<script src="./app_v7_enhancements.js"></script>
 </body>
 </html>
