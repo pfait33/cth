@@ -1018,19 +1018,10 @@
                         <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${touchMode ? "false" : "true"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
                           <div class="kidsTeamLead">
                             <span class="kidsTeamLogo" style="--logo-accent:${getTeamBrand(team).accent};">${escapeHtml(getTeamBrand(team).mark)}</span>
-                            <div>
-                              <div class="kidsTeamNameRow">
-                                <span class="kidsTeamWordmark">${escapeHtml(getTeamBrand(team).short)}</span>
-                                <strong>${escapeHtml(team.name)}</strong>
-                              </div>
-                              <div class="kidsDraftMeta">${team.offTrack ? "Mimo tra&#357;" : `${team.total} pol&iacute;`} &bull; ${touchMode ? "klepni a vyber m&iacute;sto" : "p&#345;et&aacute;hni nebo klepni"}</div>
+                            <div class="kidsTeamNameRow">
+                              <span class="kidsTeamWordmark">${escapeHtml(getTeamBrand(team).short)}</span>
+                              <strong>${escapeHtml(team.name)}</strong>
                             </div>
-                          </div>
-                          <div class="kidsDraftActions">
-                            <div class="kidsDraftMeta kidsMetaPill">${team.offTrack ? "Mimo tra&#357;" : `P${group.place}`}</div>
-                            <button class="btnSmall kidsTeamPickButton" data-kids-select-team="${team.id}">
-                              ${ui.selectedKidsTeamId === team.id ? "Vybr&aacute;no" : "Vybrat"}
-                            </button>
                           </div>
                         </div>
                       `).join("") : `<div class="kidsDraftEmpty">Sem p&#345;et&aacute;hni t&yacute;m(y) na ${group.place}. m&iacute;sto</div>`}

@@ -237,8 +237,11 @@
 
 .kidsDraftBoard {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .kidsTouchBar {
@@ -285,8 +288,8 @@
 .kidsTopLayout {
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(480px, 1.22fr);
-  align-items: start;
+  grid-template-columns: minmax(250px, 0.64fr) minmax(520px, 1.36fr);
+  align-items: stretch;
   margin-top: 10px;
 }
 
@@ -295,6 +298,19 @@
 .kidsBottomLayout {
   display: grid;
   gap: 12px;
+}
+
+.kidsDraftArea,
+.kidsTrackArea,
+.kidsTrackPanelHost,
+.kidsTrackPanelHost > .panel.trackBox {
+  min-height: 0;
+  height: 100%;
+}
+
+.kidsDraftArea {
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
 }
 
 .kidsTrackPanelHost > .panel.trackBox {
@@ -323,29 +339,21 @@
 
 .kidsDraftLane {
   display: grid;
-  gap: 8px;
-}
-
-.kidsDraftActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 6px;
 }
 
 .kidsDraftSlot {
   display: grid;
-  grid-template-columns: 58px 1fr;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
+  grid-template-columns: 46px 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 8px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.08);
   background:
     linear-gradient(90deg, rgba(var(--team-accent-rgb, 255,255,255), 0.24), rgba(var(--team-accent-rgb, 255,255,255), 0.08) 45%, rgba(255,255,255,0.03)),
     rgba(255,255,255,0.04);
-  min-height: 66px;
+  min-height: 58px;
 }
 
 .kidsDraftSlot.drag-over {
@@ -355,9 +363,11 @@
 
 .kidsSlotAssignButton {
   width: 100%;
-  min-height: 42px;
+  min-height: 34px;
   text-align: left;
   justify-content: flex-start;
+  padding: 7px 10px;
+  font-size: 12px;
 }
 
 .kidsSlotAssignButton.is-ready {
@@ -370,26 +380,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   background: rgba(255,255,255,0.08);
   font-weight: 800;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .kidsDraftTeam {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
   border-radius: 14px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  background:
+    linear-gradient(90deg, rgba(var(--team-accent-rgb, 255,255,255), 0.28), rgba(var(--team-accent-rgb, 255,255,255), 0.12) 60%, rgba(255,255,255,0.03)),
+    rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   cursor: grab;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  min-height: 52px;
 }
 
 .kidsTeamLead {
@@ -397,18 +410,19 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  width: 100%;
 }
 
 .kidsTeamLogo {
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-weight: 900;
-  font-size: 18px;
+  font-size: 16px;
   color: #ffffff;
   background:
     linear-gradient(145deg, var(--logo-accent, #777777), rgba(0,0,0,0.65)),
@@ -422,14 +436,20 @@
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .kidsTeamWordmark {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: .18em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.75);
+}
+
+.kidsTeamNameRow strong {
+  font-size: 16px;
+  line-height: 1.1;
 }
 
 .kidsDraftTeam.dragging {
@@ -475,11 +495,6 @@
 .kidsRoundLogLine {
   color: #dce2ec;
   font-size: 12px;
-}
-
-.kidsTeamPickButton {
-  min-height: 40px;
-  min-width: 84px;
 }
 
 .enhCompactList {
@@ -534,17 +549,10 @@ body.mode-kids .kidsLayout {
   }
 
   .kidsDraftTeam {
-    align-items: flex-start;
-    padding: 10px;
-  }
-
-  .kidsDraftActions {
-    width: 100%;
-    justify-content: space-between;
+    padding: 8px 10px;
   }
 
   .kidsSlotAssignButton,
-  .kidsTeamPickButton,
   .kidsTouchButton,
   .kidsDraftPanel .btnOk {
     min-height: 46px;
