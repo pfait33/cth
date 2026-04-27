@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validUpdater(data) {
+      return data.updatedBy is map
+        && data.updatedBy.deviceId is string
+        && data.updatedBy.deviceId.size() > 0
+        && data.updatedBy.deviceId.size() <= 80
+        && (!("deviceLabel" in data.updatedBy) || data.updatedBy.deviceLabel is string)
+        && (!("uid" in data.updatedBy) || data.updatedBy.uid == request.auth.uid || data.updatedBy.uid == null);
+    }
+
+    function validRaceSnapshot(data, raceId) {
+      return data.raceId == raceId
+        && data.revision is string
+        && data.revision.size() > 0
+        && data.revision.size() <= 80
+        && data.currentState is map
+        && data.summary is map
+        && validUpdater(data);
+    }
+
+    function validSyncEvent(data, raceId) {
+      return data.raceId == raceId
+        && data.revision is string
+        && data.revision.size() > 0
+        && data.revision.size() <= 80
+        && data.summary is map
+        && validUpdater(data);
+    }
+
+    match /races/{raceId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && validRaceSnapshot(request.resource.data, raceId);
+      allow delete: if false;
+
+      match /syncEvents/{eventId} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && validSyncEvent(request.resource.data, raceId);
+        allow delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -64,6 +64,7 @@ bootstrap();
 
 async function bootstrap(){
   if (isConfigured()) {
+    await importLatestCloudState();
     queueCurrentState("bootstrap");
   } else {
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
@@ -227,6 +228,55 @@ async function syncNow(){
   return getState();
 }
 
+async function importLatestCloudState(){
+  const app = window.__cthApp;
+  if (!app || typeof app.getClonedState !== "function" || typeof app.setState !== "function") return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    updateStatus("offline");
+    return;
+  }
+
+  updateStatus("checking-remote");
+
+  try{
+    const ctx = await ensureFirebase();
+    const raceRef = ctx.doc(ctx.db, "races", syncConfig.raceId);
+    const snap = await ctx.getDoc(raceRef);
+    if (!snap.exists()) {
+      updateStatus("pending");
+      return;
+    }
+
+    const remote = snap.data();
+    const remoteState = remote?.currentState;
+    if (!remoteState) {
+      updateStatus("pending");
+      return;
+    }
+
+    const localState = app.getClonedState();
+    const remoteTime = Date.parse(remote.lastSavedAt || remoteState.lastSavedAt || "");
+    const localTime = Date.parse(localState.lastSavedAt || "");
+    const shouldImport = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
+
+    if (shouldImport) {
+      lastSyncedFingerprint = JSON.stringify(remoteState);
+      app.setState(remoteState);
+      syncState.lastSuccessAt = new Date().toISOString();
+      syncState.lastRevision = remote.revision || "";
+      syncState.lastError = "";
+      updateStatus("imported");
+      return;
+    }
+
+    updateStatus("synced");
+  } catch (error){
+    console.warn("Cloud import failed:", error);
+    syncState.lastError = normalizeError(error);
+    updateStatus("error");
+  }
+}
+
 async function flushQueue(immediate){
   if (!queuedJob || syncInFlight) return;
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -369,6 +419,7 @@ function loadFirebaseSdk(){
       getFirestore: dbMod.getFirestore,
       doc: dbMod.doc,
       setDoc: dbMod.setDoc,
+      getDoc: dbMod.getDoc,
       collection: dbMod.collection,
       serverTimestamp: dbMod.serverTimestamp
     };
@@ -408,6 +459,8 @@ function getStatusLabel(){
   if (!syncConfig.enabled) return "vypnuto";
   if (!syncState.configured) return "chybi nastaveni";
   if (syncState.status === "syncing") return "probihajici sync";
+  if (syncState.status === "checking-remote") return "kontrola cloudu";
+  if (syncState.status === "imported") return "obnoveno z cloudu";
   if (syncState.status === "offline") return "ceka na internet";
   if (syncState.status === "error") return syncState.lastError ? `chyba (${syncState.lastError})` : "chyba";
   if (syncState.status === "synced") {
