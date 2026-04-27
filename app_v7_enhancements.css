@@ -64,6 +64,12 @@
   color: var(--text);
 }
 
+.enhPanel textarea {
+  min-height: 170px;
+  font-family: Consolas, "Courier New", monospace;
+  resize: vertical;
+}
+
 .enhSplit {
   display: grid;
   gap: 12px;

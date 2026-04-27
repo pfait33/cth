@@ -342,6 +342,120 @@
       `;
     }
 
+    function renderSettings(state){
+      const mount = document.getElementById("enhSettingsPanel");
+      if (!mount) return;
+      const placeMap = state.settings?.placeToDelta || {};
+      const cloud = window.__cthCloudSync?.getState?.() || {
+        label: "vypnuto",
+        deviceId: "",
+        config: {
+          enabled: false,
+          raceId: "",
+          deviceLabel: "",
+          firebase: {}
+        }
+      };
+      const firebaseConfigJson = JSON.stringify(cloud.config?.firebase || {}, null, 2);
+      mount.innerHTML = `
+        <div class="enhSettingsList">
+          <div class="enhSettingRow">
+            <h3>Nastaveni zavodu</h3>
+            <div class="enhMuted" style="margin-bottom:10px;">Bodovani urcuje, o kolik poli se tym posune za 1.-5. misto. Rychlost animaci meni delku animace kolizi. Prepinac 60:40 kolize zapina pravdepodobnostni vyhodnoceni ve prospech predjizdejiciho, jinak vzdy postupuje predjizdejici. Animace zapnute povoluje vizualni prehrani kolizi.</div>
+            <div class="enhTwoCol">
+              <div>
+                <div class="enhMuted">Nazev velke ceny</div>
+                <input id="enhRaceName" type="text" value="${escapeHtml(state.settings?.raceName || "")}" />
+              </div>
+              <div>
+                <div class="enhMuted">Aktualni kolo</div>
+                <input id="enhRoundNumber" type="number" min="1" value="${state.round?.number || 1}" />
+              </div>
+              <div>
+                <div class="enhMuted">Pocet poli trati</div>
+                <input id="enhTrackSize" type="number" min="20" max="120" value="${state.settings?.trackSize || 40}" />
+              </div>
+              <div>
+                <div class="enhMuted">Event pole (csv)</div>
+                <input id="enhEventTiles" type="text" value="${escapeHtml((state.settings?.eventTiles || []).join(","))}" />
+              </div>
+              <div>
+                <div class="enhMuted">1. misto</div>
+                <input id="enhPlace1" type="number" value="${placeMap[1] ?? 5}" />
+              </div>
+              <div>
+                <div class="enhMuted">2. misto</div>
+                <input id="enhPlace2" type="number" value="${placeMap[2] ?? 4}" />
+              </div>
+              <div>
+                <div class="enhMuted">3. misto</div>
+                <input id="enhPlace3" type="number" value="${placeMap[3] ?? 3}" />
+              </div>
+              <div>
+                <div class="enhMuted">4. misto</div>
+                <input id="enhPlace4" type="number" value="${placeMap[4] ?? 2}" />
+              </div>
+              <div>
+                <div class="enhMuted">5. misto</div>
+                <input id="enhPlace5" type="number" value="${placeMap[5] ?? 1}" />
+              </div>
+              <div>
+                <div class="enhMuted">Rychlost animaci</div>
+                <input id="enhAnimSpeed" type="number" min="0.5" max="3" step="0.1" value="${state.settings?.animationSpeed || 1}" />
+              </div>
+            </div>
+            <div class="enhButtonRow">
+              <label class="enhTag"><input id="enhCollisionRandom" type="checkbox" ${state.settings?.collisionRandom === false ? "" : "checked"} /> 60:40 kolize</label>
+              <label class="enhTag"><input id="enhAnimationsEnabled" type="checkbox" ${state.settings?.animationsEnabled === false ? "" : "checked"} /> animace zapnute</label>
+              <button class="btnOk" data-enh-action="save-settings">Ulozit nastaveni</button>
+            </div>
+          </div>
+          <div class="enhSettingRow">
+            <h3>Tymy</h3>
+            <div class="enhSettingsTeams">
+              ${state.teams.map(team => `
+                <div class="enhSettingsTeam">
+                  <input type="text" data-enh-team-name="${team.id}" value="${escapeHtml(team.name)}" />
+                  <input type="color" data-enh-team-color="${team.id}" value="${escapeHtml(team.color)}" />
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          <div class="enhSettingRow">
+            <h3>Cloud sync</h3>
+            <div class="enhMuted" style="margin-bottom:10px;">Po ulozeni vysledku aplikace zustane lokalni ulozeni okamzite a navic se automaticky posle snapshot zavodu do Firestore. Pro fungovani zapni ve Firebase Firestore a Anonymous Auth.</div>
+            <div class="enhPreviewItem" style="margin-bottom:10px;">
+              <strong>Stav:</strong> ${escapeHtml(cloud.label || "vypnuto")}<br />
+              <span class="enhMuted">Race ID: ${escapeHtml(cloud.config?.raceId || "neni vyplneno")} • Zarizeni: ${escapeHtml(cloud.config?.deviceLabel || cloud.deviceId || "")}</span>
+            </div>
+            <div class="enhButtonRow" style="margin-top:0; margin-bottom:10px;">
+              <label class="enhTag"><input id="enhCloudEnabled" type="checkbox" ${cloud.config?.enabled ? "checked" : ""} /> cloud sync zapnuty</label>
+              <button class="btnSmall" data-enh-action="sync-now">Synchronizovat ted</button>
+              <button class="btnSmall" data-enh-action="clear-cloud-sync">Vypnout a smazat nastaveni</button>
+            </div>
+            <div class="enhTwoCol">
+              <div>
+                <div class="enhMuted">Race ID</div>
+                <input id="enhCloudRaceId" type="text" value="${escapeHtml(cloud.config?.raceId || "")}" placeholder="napr. klondike-2026-hlavni-zavod" />
+              </div>
+              <div>
+                <div class="enhMuted">Nazev zarizeni</div>
+                <input id="enhCloudDeviceLabel" type="text" value="${escapeHtml(cloud.config?.deviceLabel || "")}" placeholder="napr. Notebook velin" />
+              </div>
+            </div>
+            <div style="margin-top:10px;">
+              <div class="enhMuted">Firebase config JSON</div>
+              <textarea id="enhCloudFirebaseConfig" rows="8" spellcheck="false" placeholder='{"apiKey":"","authDomain":"","projectId":"","appId":""}'>${escapeHtml(firebaseConfigJson)}</textarea>
+            </div>
+            <div class="enhMuted" style="margin-top:10px;">Doporucene ulozeni: kolekce <code>races</code>, dokument podle Race ID a podkolekce <code>syncEvents</code>.</div>
+            <div class="enhButtonRow">
+              <button class="btnOk" data-enh-action="save-cloud-sync">Ulozit cloud sync</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     function renderPublicPanel(state){
       const mount = document.getElementById("enhKidsPublicPanel");
       if (!mount) return;
@@ -1122,6 +1236,37 @@
       app.showToast("Nastaveni ulozeno.");
     }
 
+    function applyCloudSyncSettings(){
+      const api = window.__cthCloudSync;
+      if (!api || typeof api.saveConfig !== "function") {
+        app.showToast("Cloud sync modul se nenasel.");
+        return;
+      }
+
+      const enabled = !!document.getElementById("enhCloudEnabled")?.checked;
+      const raceId = document.getElementById("enhCloudRaceId")?.value?.trim() || "";
+      const deviceLabel = document.getElementById("enhCloudDeviceLabel")?.value?.trim() || "";
+      const rawConfig = document.getElementById("enhCloudFirebaseConfig")?.value?.trim() || "{}";
+
+      let firebaseConfig;
+      try{
+        firebaseConfig = JSON.parse(rawConfig);
+      } catch (error){
+        app.showToast("Firebase config JSON neni validni.");
+        return;
+      }
+
+      api.saveConfig({
+        enabled,
+        raceId,
+        deviceLabel,
+        firebase: firebaseConfig
+      });
+
+      app.showToast(enabled ? "Cloud sync ulozen. Pri dalsim ulozeni se spusti synchronizace." : "Cloud sync vypnut.");
+      refresh();
+    }
+
     function updateEventRule(key, patch){
       const state = getState();
       state.settings = state.settings || {};
@@ -1180,6 +1325,10 @@
       if (target.id === "enhActivityName") ui.draftActivityName = target.value;
     });
 
+    window.addEventListener("cth-cloud-sync-status", function(){
+      refresh();
+    });
+
     document.addEventListener("click", function(event){
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
@@ -1225,6 +1374,30 @@
           if (validation?.ok) app.showToast("Poradi zadano. Dokonci potvrzeni kola.");
         }
         if (action === "save-settings") applySettings();
+        if (action === "save-cloud-sync") applyCloudSyncSettings();
+        if (action === "sync-now") {
+          const cloudApi = window.__cthCloudSync;
+          if (!cloudApi || typeof cloudApi.syncNow !== "function") {
+            app.showToast("Cloud sync modul se nenasel.");
+          } else {
+            cloudApi.syncNow().then(function(){
+              app.showToast("Rucni synchronizace dokoncena nebo zarazena do fronty.");
+              refresh();
+            }).catch(function(error){
+              app.showToast(`Cloud sync selhal: ${error?.message || error}`);
+            });
+          }
+        }
+        if (action === "clear-cloud-sync") {
+          const cloudApi = window.__cthCloudSync;
+          if (!cloudApi || typeof cloudApi.clearConfig !== "function") {
+            app.showToast("Cloud sync modul se nenasel.");
+          } else {
+            cloudApi.clearConfig();
+            app.showToast("Cloud sync nastaveni bylo vymazano.");
+            refresh();
+          }
+        }
         if (action === "toggle-animations") {
           const state = getState();
           state.settings.animationsEnabled = !(state.settings?.animationsEnabled !== false);

@@ -2547,6 +2547,17 @@ function buildPreviewCTHReportText(){
       state.lastSavedAt = new Date().toISOString();
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       dirty = false;
+      if (typeof window.__cthCloudSyncHook === "function"){
+        try{
+          window.__cthCloudSyncHook({
+            state: deepClone(state),
+            force: !!force,
+            savedAt: state.lastSavedAt
+          });
+        } catch (syncErr){
+          console.warn("Cloud sync hook failed:", syncErr);
+        }
+      }
       renderSaveInfo();
     } catch (e){
       renderSaveInfo(true);
@@ -2592,6 +2603,10 @@ function buildPreviewCTHReportText(){
 
   function renderSaveInfo(failed){
     const t = state.lastSavedAt ? new Date(state.lastSavedAt) : null;
+    const cloudLabel = (typeof window.__cthCloudSyncGetLabel === "function")
+      ? String(window.__cthCloudSyncGetLabel() || "").trim()
+      : "";
+    const cloudSuffix = cloudLabel ? ` • cloud: ${cloudLabel}` : "";
     if (failed){
       elSaveInfo.textContent = "Ukládání: SELHÁNÍ (doporučení: Export JSON).";
       return;
@@ -2611,6 +2626,24 @@ function buildPreviewCTHReportText(){
     btnManual.onclick = manualMove;
     if (btnManualEvent) btnManualEvent.onclick = manualTriggerEvent;
     if (btnClearGames) btnClearGames.onclick = clearGamesTable;
+  }
+
+  function renderSaveInfo(failed){
+    const t = state.lastSavedAt ? new Date(state.lastSavedAt) : null;
+    const cloudLabel = (typeof window.__cthCloudSyncGetLabel === "function")
+      ? String(window.__cthCloudSyncGetLabel() || "").trim()
+      : "";
+    const cloudSuffix = cloudLabel ? ` • cloud: ${cloudLabel}` : "";
+    if (failed){
+      elSaveInfo.textContent = `Ukladani: SELHANI (doporučení: Export JSON)${cloudSuffix}.`;
+      return;
+    }
+    if (!t){
+      elSaveInfo.textContent = `Ukladani: zatim neulozeno${cloudSuffix}.`;
+      return;
+    }
+    const time = t.toLocaleTimeString("cs-CZ", { hour:"2-digit", minute:"2-digit" });
+    elSaveInfo.textContent = `Ukladani: automaticky • posledni zapis ${time}${dirty ? " • neulozene zmeny" : ""}${cloudSuffix}`;
   }
 
   function renderRoundInfo(){
@@ -3292,6 +3325,7 @@ function renderQueue(){
   init();
 })();
 </script>
+<script type="module" src="./app_v7_cloud_sync.js"></script>
 <script src="./app_v7_enhancements.js"></script>
 </body>
 </html>
