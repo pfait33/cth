@@ -1,6 +1,14 @@
 const CLOUD_SYNC_STORAGE_KEY = "klondike_f1_cloud_sync_v1";
 const CLOUD_SYNC_DEVICE_KEY = "klondike_f1_cloud_sync_device_v1";
 const FIREBASE_WEB_SDK_VERSION = "10.12.2";
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBxEwRc8nUtF8hyDeSHErMTGuorPs3vZGs",
+  authDomain: "cth-klondike-2026.firebaseapp.com",
+  projectId: "cth-klondike-2026",
+  storageBucket: "cth-klondike-2026.firebasestorage.app",
+  messagingSenderId: "724444139351",
+  appId: "1:724444139351:web:6a477d1fde9796be057812"
+};
 
 let firebaseSdkPromise = null;
 let firebaseContext = null;
@@ -19,6 +27,9 @@ const syncState = {
   lastSavedAt: null,
   deviceId: getOrCreateDeviceId(),
   authUid: "",
+  authEmail: "",
+  authProvider: "",
+  canWrite: false,
   configured: false
 };
 
@@ -30,6 +41,8 @@ window.__cthCloudSync = {
   saveConfig,
   clearConfig,
   syncNow,
+  signInAdmin,
+  signOutAdmin,
   isReady: isConfigured
 };
 
@@ -83,15 +96,10 @@ function getState(){
 function loadConfig(){
   const defaults = {
     enabled: false,
-    raceId: "",
+    raceId: "klondike-2026-hlavni-zavod",
     deviceLabel: "",
     firebase: {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+      ...DEFAULT_FIREBASE_CONFIG
     }
   };
 
@@ -228,6 +236,30 @@ async function syncNow(){
   return getState();
 }
 
+async function signInAdmin(email, password){
+  const ctx = await ensureFirebase();
+  const cleanEmail = String(email || "").trim();
+  const cleanPassword = String(password || "");
+  if (!cleanEmail || !cleanPassword) {
+    throw new Error("Vypln e-mail i heslo.");
+  }
+  updateStatus("authenticating");
+  await ctx.signInWithEmailAndPassword(ctx.auth, cleanEmail, cleanPassword);
+  updateAuthState(ctx.auth.currentUser);
+  updateStatus("admin-ready");
+  if (queuedJob) await flushQueue(true);
+  return getState();
+}
+
+async function signOutAdmin(){
+  const ctx = await ensureFirebase();
+  await ctx.signOut(ctx.auth);
+  await ctx.signInAnonymously(ctx.auth);
+  updateAuthState(ctx.auth.currentUser);
+  updateStatus("read-only");
+  return getState();
+}
+
 async function importLatestCloudState(){
   const app = window.__cthApp;
   if (!app || typeof app.getClonedState !== "function" || typeof app.setState !== "function") return;
@@ -297,6 +329,14 @@ async function flushQueue(immediate){
 
   try{
     const ctx = await ensureFirebase();
+    if (!isAdminUser(ctx.auth.currentUser)) {
+      queuedJob = job;
+      syncState.lastError = "prihlas se jako admin pro zapis";
+      updateAuthState(ctx.auth.currentUser);
+      updateStatus("read-only");
+      return;
+    }
+
     const revision = `${Date.now()}-${(++revisionCounter).toString().padStart(3, "0")}`;
     const deviceLabel = syncConfig.deviceLabel || `Stanice ${syncState.deviceId.slice(-4)}`;
     const raceRef = ctx.doc(ctx.db, "races", syncConfig.raceId);
@@ -346,7 +386,7 @@ async function flushQueue(immediate){
     scheduleRetry();
   } finally {
     syncInFlight = false;
-    if (queuedJob && !syncTimer) scheduleRetry();
+    if (queuedJob && !syncTimer && syncState.status !== "read-only") scheduleRetry();
   }
 }
 
@@ -381,11 +421,14 @@ async function ensureFirebase(){
   }
 
   const auth = sdk.getAuth(firebaseApp);
+  sdk.onAuthStateChanged(auth, function(user){
+    updateAuthState(user);
+  });
   if (!auth.currentUser) {
     await sdk.signInAnonymously(auth);
   }
 
-  syncState.authUid = auth.currentUser?.uid || "";
+  updateAuthState(auth.currentUser);
 
   firebaseContext = {
     ...sdk,
@@ -413,6 +456,9 @@ function loadFirebaseSdk(){
       getApps: appMod.getApps,
       getAuth: authMod.getAuth,
       signInAnonymously: authMod.signInAnonymously,
+      signInWithEmailAndPassword: authMod.signInWithEmailAndPassword,
+      signOut: authMod.signOut,
+      onAuthStateChanged: authMod.onAuthStateChanged,
       initializeFirestore: dbMod.initializeFirestore,
       persistentLocalCache: dbMod.persistentLocalCache,
       persistentSingleTabManager: dbMod.persistentSingleTabManager,
@@ -426,6 +472,20 @@ function loadFirebaseSdk(){
   });
 
   return firebaseSdkPromise;
+}
+
+function updateAuthState(user){
+  const provider = user?.providerData?.[0]?.providerId || "";
+  syncState.authUid = user?.uid || "";
+  syncState.authEmail = user?.email || "";
+  syncState.authProvider = provider || (user?.isAnonymous ? "anonymous" : "");
+  syncState.canWrite = isAdminUser(user);
+}
+
+function isAdminUser(user){
+  return !!user && !user.isAnonymous && user.providerData?.some(function(provider){
+    return provider.providerId === "password";
+  });
 }
 
 function buildSummary(snapshot, reason){
@@ -458,6 +518,9 @@ function emitStatus(){
 function getStatusLabel(){
   if (!syncConfig.enabled) return "vypnuto";
   if (!syncState.configured) return "chybi nastaveni";
+  if (syncState.status === "authenticating") return "prihlasovani admina";
+  if (syncState.status === "admin-ready") return `admin ${syncState.authEmail || "prihlasen"}`;
+  if (syncState.status === "read-only") return "jen cteni, prihlas admina pro zapis";
   if (syncState.status === "syncing") return "probihajici sync";
   if (syncState.status === "checking-remote") return "kontrola cloudu";
   if (syncState.status === "imported") return "obnoveno z cloudu";
@@ -475,6 +538,7 @@ function getStatusLabel(){
 function normalizeError(error){
   const message = String(error?.message || error || "neznamy problem");
   if (/auth\/operation-not-allowed/i.test(message)) return "zapni Anonymous Auth";
+  if (/auth\/invalid-credential|auth\/wrong-password|auth\/user-not-found/i.test(message)) return "neplatny e-mail nebo heslo";
   if (/Missing or insufficient permissions/i.test(message)) return "zkontroluj Firestore pravidla";
   if (/Failed to fetch dynamically imported module/i.test(message)) return "nelze nacist Firebase SDK";
   return message.length > 80 ? `${message.slice(0, 77)}...` : message;

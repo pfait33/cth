@@ -6,6 +6,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function adminSignedIn() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == "password";
+    }
+
     function validUpdater(data) {
       return data.updatedBy is map
         && data.updatedBy.deviceId is string
@@ -36,13 +41,13 @@ service cloud.firestore {
 
     match /races/{raceId} {
       allow read: if signedIn();
-      allow create, update: if signedIn()
+      allow create, update: if adminSignedIn()
         && validRaceSnapshot(request.resource.data, raceId);
       allow delete: if false;
 
       match /syncEvents/{eventId} {
         allow read: if signedIn();
-        allow create, update: if signedIn()
+        allow create, update: if adminSignedIn()
           && validSyncEvent(request.resource.data, raceId);
         allow delete: if false;
       }

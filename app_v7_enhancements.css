@@ -53,6 +53,8 @@
 .enhToolbar input[type="color"],
 .enhToolbar select,
 .enhPanel input[type="text"],
+.enhPanel input[type="email"],
+.enhPanel input[type="password"],
 .enhPanel input[type="number"],
 .enhPanel input[type="color"],
 .enhPanel textarea {

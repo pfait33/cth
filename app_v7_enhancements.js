@@ -426,12 +426,27 @@
             <div class="enhMuted" style="margin-bottom:10px;">Po ulozeni vysledku aplikace zustane lokalni ulozeni okamzite a navic se automaticky posle snapshot zavodu do Firestore. Pro fungovani zapni ve Firebase Firestore a Anonymous Auth.</div>
             <div class="enhPreviewItem" style="margin-bottom:10px;">
               <strong>Stav:</strong> ${escapeHtml(cloud.label || "vypnuto")}<br />
-              <span class="enhMuted">Race ID: ${escapeHtml(cloud.config?.raceId || "neni vyplneno")} • Zarizeni: ${escapeHtml(cloud.config?.deviceLabel || cloud.deviceId || "")}</span>
+              <span class="enhMuted">Race ID: ${escapeHtml(cloud.config?.raceId || "neni vyplneno")} • Zarizeni: ${escapeHtml(cloud.config?.deviceLabel || cloud.deviceId || "")}</span><br />
+              <span class="enhMuted">Prihlaseni: ${cloud.canWrite ? `admin ${escapeHtml(cloud.authEmail || "")}` : "pouze cteni"}</span>
             </div>
             <div class="enhButtonRow" style="margin-top:0; margin-bottom:10px;">
               <label class="enhTag"><input id="enhCloudEnabled" type="checkbox" ${cloud.config?.enabled ? "checked" : ""} /> cloud sync zapnuty</label>
               <button class="btnSmall" data-enh-action="sync-now">Synchronizovat ted</button>
               <button class="btnSmall" data-enh-action="clear-cloud-sync">Vypnout a smazat nastaveni</button>
+            </div>
+            <div class="enhTwoCol">
+              <div>
+                <div class="enhMuted">Admin e-mail</div>
+                <input id="enhCloudAdminEmail" type="email" value="${escapeHtml(cloud.authEmail || "")}" placeholder="vedouci@example.com" />
+              </div>
+              <div>
+                <div class="enhMuted">Admin heslo</div>
+                <input id="enhCloudAdminPassword" type="password" value="" autocomplete="current-password" />
+              </div>
+            </div>
+            <div class="enhButtonRow">
+              <button class="btnOk" data-enh-action="cloud-admin-login">Prihlasit admina</button>
+              <button class="btnSmall" data-enh-action="cloud-admin-logout">Odhlasit admina</button>
             </div>
             <div class="enhTwoCol">
               <div>
@@ -1375,6 +1390,33 @@
         }
         if (action === "save-settings") applySettings();
         if (action === "save-cloud-sync") applyCloudSyncSettings();
+        if (action === "cloud-admin-login") {
+          const cloudApi = window.__cthCloudSync;
+          const email = document.getElementById("enhCloudAdminEmail")?.value || "";
+          const password = document.getElementById("enhCloudAdminPassword")?.value || "";
+          if (!cloudApi || typeof cloudApi.signInAdmin !== "function") {
+            app.showToast("Cloud sync modul se nenasel.");
+          } else {
+            cloudApi.signInAdmin(email, password).then(function(){
+              app.showToast("Admin prihlasen. Cloud zapis je povolen.");
+              refresh();
+            }).catch(function(error){
+              app.showToast(`Prihlaseni selhalo: ${error?.message || error}`);
+              refresh();
+            });
+          }
+        }
+        if (action === "cloud-admin-logout") {
+          const cloudApi = window.__cthCloudSync;
+          if (!cloudApi || typeof cloudApi.signOutAdmin !== "function") {
+            app.showToast("Cloud sync modul se nenasel.");
+          } else {
+            cloudApi.signOutAdmin().then(function(){
+              app.showToast("Admin odhlasen. Cloud je jen pro cteni.");
+              refresh();
+            });
+          }
+        }
         if (action === "sync-now") {
           const cloudApi = window.__cthCloudSync;
           if (!cloudApi || typeof cloudApi.syncNow !== "function") {
