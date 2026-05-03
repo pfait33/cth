@@ -109,17 +109,14 @@ function loadConfig(){
   try{
     const raw = localStorage.getItem(CLOUD_SYNC_STORAGE_KEY);
     if (!raw) {
-      syncState.configured = false;
+      syncState.configured = !!defaults.enabled && hasFirebaseConfig(defaults.firebase) && !!String(defaults.raceId || "").trim();
       return defaults;
     }
     const parsed = JSON.parse(raw);
     const merged = {
       ...defaults,
       ...parsed,
-      firebase: {
-        ...defaults.firebase,
-        ...(parsed?.firebase || {})
-      }
+      firebase: sanitizeFirebaseConfig(parsed?.firebase || {})
     };
     syncState.configured = !!merged.enabled && hasFirebaseConfig(merged.firebase) && !!String(merged.raceId || "").trim();
     return merged;
@@ -172,17 +169,14 @@ function clearConfig(){
 }
 
 function sanitizeFirebaseConfig(firebase){
-  const source = {
-    ...DEFAULT_FIREBASE_CONFIG,
-    ...(firebase || {})
-  };
+  const source = firebase || {};
   return {
-    apiKey: String(source.apiKey || "").trim(),
-    authDomain: String(source.authDomain || "").trim(),
-    projectId: String(source.projectId || "").trim(),
-    storageBucket: String(source.storageBucket || "").trim(),
-    messagingSenderId: String(source.messagingSenderId || "").trim(),
-    appId: String(source.appId || "").trim()
+    apiKey: String(source.apiKey || DEFAULT_FIREBASE_CONFIG.apiKey || "").trim(),
+    authDomain: String(source.authDomain || DEFAULT_FIREBASE_CONFIG.authDomain || "").trim(),
+    projectId: String(source.projectId || DEFAULT_FIREBASE_CONFIG.projectId || "").trim(),
+    storageBucket: String(source.storageBucket || DEFAULT_FIREBASE_CONFIG.storageBucket || "").trim(),
+    messagingSenderId: String(source.messagingSenderId || DEFAULT_FIREBASE_CONFIG.messagingSenderId || "").trim(),
+    appId: String(source.appId || DEFAULT_FIREBASE_CONFIG.appId || "").trim()
   };
 }
 
