@@ -1174,7 +1174,7 @@
                         ${selectedTeam ? `P&#345;esunout sem ${escapeHtml(selectedTeam.name)}` : `Vyber t&yacute;m pro ${group.place}. m&iacute;sto`}
                       </button>
                       ${group.teams.length ? group.teams.map(team => `
-                        <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${touchMode ? "false" : "true"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
+                        <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${canWriteShared && !touchMode ? "true" : "false"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
                           <div class="kidsTeamLead">
                             <span class="kidsTeamLogo" style="--logo-accent:${getTeamBrand(team).accent};">${escapeHtml(getTeamBrand(team).mark)}</span>
                             <div class="kidsTeamNameRow">
@@ -1314,7 +1314,7 @@
 
     function hasSharedWriteAccess(){
       const cloud = window.__cthCloudSync?.getState?.();
-      return !cloud?.config?.enabled || !!cloud.canWrite;
+      return !!cloud && (!cloud.config?.enabled || !!cloud.canWrite);
     }
 
     function requireSharedWriteAccess(){

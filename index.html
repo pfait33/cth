@@ -424,6 +424,17 @@
     return getSettings().collisionRandom !== false;
   }
 
+  function hasSharedWriteAccess(){
+    const cloud = window.__cthCloudSync?.getState?.();
+    return !!cloud && (!cloud.config?.enabled || !!cloud.canWrite);
+  }
+
+  function requireSharedWriteAccess(){
+    if (hasSharedWriteAccess()) return true;
+    showToast("Zadávání výsledků je zamčené. Přihlas admina.");
+    return false;
+  }
+
   function areAnimationsEnabled(){
     return getSettings().animationsEnabled !== false;
   }
@@ -1737,6 +1748,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function applyPlacement(teamId, place){
+    if (!requireSharedWriteAccess()) return;
     if (![1,2,3,4,5].includes(place)) return;
 
     if (state.phase === "seed"){
@@ -1870,6 +1882,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function applyBatchRound(placements, activityName){
+    if (!requireSharedWriteAccess()) return { ok:false, issues:["Zadávání výsledků je dostupné jen po přihlášení admina."] };
     const validation = validateBatchPlacements(placements);
     if (!validation.ok){
       showToast("Hromadne zadani neni kompletni.");
