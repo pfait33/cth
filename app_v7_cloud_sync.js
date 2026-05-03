@@ -95,7 +95,7 @@ function getState(){
 
 function loadConfig(){
   const defaults = {
-    enabled: false,
+    enabled: true,
     raceId: "klondike-2026-hlavni-zavod",
     deviceLabel: "",
     firebase: {

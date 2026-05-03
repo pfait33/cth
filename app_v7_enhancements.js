@@ -437,11 +437,11 @@
             <div class="enhTwoCol">
               <div>
                 <div class="enhMuted">Admin e-mail</div>
-                <input id="enhCloudAdminEmail" type="email" value="${escapeHtml(cloud.authEmail || "")}" placeholder="vedouci@example.com" />
+                <input id="enhCloudAdminEmail" data-cloud-admin-email type="email" value="${escapeHtml(cloud.authEmail || "")}" placeholder="vedouci@example.com" />
               </div>
               <div>
                 <div class="enhMuted">Admin heslo</div>
-                <input id="enhCloudAdminPassword" type="password" value="" autocomplete="current-password" />
+                <input id="enhCloudAdminPassword" data-cloud-admin-password type="password" value="" autocomplete="current-password" />
               </div>
             </div>
             <div class="enhButtonRow">
@@ -575,6 +575,7 @@
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
       const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -679,6 +680,8 @@
       if (!mount) return;
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
+      const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -811,6 +814,8 @@
       if (!mount) return;
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
+      const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -943,6 +948,8 @@
       if (!mount) return;
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
+      const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -1075,6 +1082,8 @@
       if (!mount) return;
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
+      const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -1111,6 +1120,25 @@
             <div class="enhMuted">Posledn&iacute; zm&#283;na</div>
             <div>${last ? escapeHtml(last.event?.title || last.source || "zm&#283;na") : "Zat&iacute;m bez zm&#283;n"}</div>
             <div class="enhMuted" style="margin-top:4px;">${last ? escapeHtml(last.event?.text || last.teamName || "") : ""}</div>
+          </div>
+          <div class="kidsPublicCard kidsF1Card kidsAdminGate">
+            <div class="enhMuted">Admin</div>
+            ${cloud.canWrite ? `
+              <div class="kidsAdminStatus">P&#345;ihl&aacute;&scaron;eno</div>
+              <div class="enhMuted">${escapeHtml(cloud.authEmail || "admin")}</div>
+              <div class="kidsAdminActions">
+                <button class="btnOk" data-enh-action="open-admin">Administrace</button>
+                <button class="btnSmall" data-enh-action="cloud-admin-logout">Odhl&aacute;sit</button>
+              </div>
+            ` : `
+              <div class="kidsAdminStatus">Pouze sledov&aacute;n&iacute;</div>
+              <div class="kidsAdminLoginPanel">
+                <input class="kidsAdminInput" data-cloud-admin-email type="email" placeholder="Admin e-mail" autocomplete="username" />
+                <input class="kidsAdminInput" data-cloud-admin-password type="password" placeholder="Heslo" autocomplete="current-password" />
+                <button class="btnOk" data-enh-action="cloud-admin-login">P&#345;ihl&aacute;sit admina</button>
+              </div>
+              <div class="enhMuted">${escapeHtml(cloud.label || "cloud")}</div>
+            `}
           </div>
         </div>
         <div class="kidsPublicCard kidsF1Card kidsDraftPanel">
@@ -1295,6 +1323,14 @@
       return false;
     }
 
+    function getCloudLoginFields(actionEl){
+      const panel = actionEl?.closest(".kidsAdminLoginPanel, .enhSettingRow") || document;
+      return {
+        email: panel.querySelector("[data-cloud-admin-email]")?.value || document.getElementById("enhCloudAdminEmail")?.value || "",
+        password: panel.querySelector("[data-cloud-admin-password]")?.value || document.getElementById("enhCloudAdminPassword")?.value || ""
+      };
+    }
+
     function updateEventRule(key, patch){
       const state = getState();
       state.settings = state.settings || {};
@@ -1425,8 +1461,9 @@
         if (action === "save-cloud-sync") applyCloudSyncSettings();
         if (action === "cloud-admin-login") {
           const cloudApi = window.__cthCloudSync;
-          const email = document.getElementById("enhCloudAdminEmail")?.value || "";
-          const password = document.getElementById("enhCloudAdminPassword")?.value || "";
+          const loginFields = getCloudLoginFields(actionEl);
+          const email = loginFields.email;
+          const password = loginFields.password;
           if (!cloudApi || typeof cloudApi.signInAdmin !== "function") {
             app.showToast("Cloud sync modul se nenasel.");
           } else {
@@ -1438,6 +1475,13 @@
               refresh();
             });
           }
+        }
+        if (action === "open-admin") {
+          if (!hasSharedWriteAccess()) {
+            app.showToast("Administrace je dostupna az po prihlaseni admina.");
+            return;
+          }
+          app.setUIMode?.("admin");
         }
         if (action === "cloud-admin-logout") {
           const cloudApi = window.__cthCloudSync;

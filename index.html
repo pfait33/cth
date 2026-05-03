@@ -521,8 +521,20 @@
   if (location.hash === "#admin") uiMode = "admin";
   if (location.hash === "#kids") uiMode = "kids";
 
+  function cloudLockExpectedBeforeSyncBoot(){
+    try{
+      const raw = localStorage.getItem("klondike_f1_cloud_sync_v1");
+      if (!raw) return true;
+      const cfg = JSON.parse(raw);
+      return cfg.enabled !== false;
+    } catch {
+      return true;
+    }
+  }
+
   function isAdminUiAllowed(){
     const cloud = (typeof window.__cthCloudSync?.getState === "function") ? window.__cthCloudSync.getState() : null;
+    if (!cloud) return !cloudLockExpectedBeforeSyncBoot();
     return !cloud?.config?.enabled || !!cloud.canWrite;
   }
 
