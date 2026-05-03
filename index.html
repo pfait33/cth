@@ -521,22 +521,47 @@
   if (location.hash === "#admin") uiMode = "admin";
   if (location.hash === "#kids") uiMode = "kids";
 
+  function isAdminUiAllowed(){
+    const cloud = (typeof window.__cthCloudSync?.getState === "function") ? window.__cthCloudSync.getState() : null;
+    return !cloud?.config?.enabled || !!cloud.canWrite;
+  }
+
   function applyUIMode(){
+    const adminAllowed = isAdminUiAllowed();
+    if (!adminAllowed && uiMode === "admin") {
+      uiMode = "kids";
+      localStorage.setItem(UI_KEY, uiMode);
+    }
     const kids = (uiMode === "kids");
     document.body.classList.toggle("mode-kids", kids);
     if (elKidsView) elKidsView.style.display = kids ? "" : "none";
     if (elAdminView) elAdminView.style.display = kids ? "none" : "";
-    if (btnToggleUI) btnToggleUI.textContent = kids ? "Rozbalit administraci" : "Zobrazit dětské UI";
+    if (btnToggleUI) {
+      btnToggleUI.textContent = !adminAllowed
+        ? "Administrace uzamcena"
+        : (kids ? "Rozbalit administraci" : "Zobrazit dětské UI");
+      btnToggleUI.disabled = !adminAllowed;
+      btnToggleUI.classList.toggle("hidden", !adminAllowed);
+    }
   }
 
   if (btnToggleUI){
     btnToggleUI.onclick = () => {
+      if (!isAdminUiAllowed()){
+        showToast("Administrace je dostupna az po prihlaseni admina.");
+        applyUIMode();
+        return;
+      }
       uiMode = (uiMode === "kids") ? "admin" : "kids";
       localStorage.setItem(UI_KEY, uiMode);
       applyUIMode();
       render();
     };
   }
+
+  window.addEventListener("cth-cloud-sync-status", () => {
+    applyUIMode();
+  });
 
   const elDeltaInput = document.getElementById("deltaInput");
   const elManualTeam = document.getElementById("manualTeam");
@@ -3272,6 +3297,14 @@ function renderQueue(){
     deepClone,
     persist,
     render,
+    applyUIMode,
+    setUIMode(nextMode){
+      uiMode = nextMode === "admin" ? "admin" : "kids";
+      localStorage.setItem(UI_KEY, uiMode);
+      applyUIMode();
+      render();
+      return uiMode;
+    },
     showToast,
     applyPlacement,
     applyBatchRound,

@@ -574,6 +574,7 @@
       if (!mount) return;
       const touchMode = isLikelyTouchDevice();
       const selectedTeam = getSelectedKidsTeam(state);
+      const canWriteShared = hasSharedWriteAccess();
       const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
       const leader = onTrack[0];
       const last = state.history?.[0];
@@ -1118,8 +1119,9 @@
               <div class="enhMuted">Race control &bull; d&#283;tsk&eacute; zad&aacute;n&iacute; kola</div>
               <div class="big" style="font-size:18px;">P&#345;et&aacute;hni t&yacute;my na 1.&ndash;5. m&iacute;sto</div>
             </div>
-            <button class="btnOk" data-enh-action="apply-kids-batch">Potvrdit po&#345;ad&iacute;</button>
+            <button class="btnOk" data-enh-action="apply-kids-batch" ${canWriteShared ? "" : "disabled"}>Potvrdit po&#345;ad&iacute;</button>
           </div>
+          ${canWriteShared ? "" : `<div class="enhPreviewItem" style="margin-top:10px;">Re&#382;im pouze pro sledov&aacute;n&iacute;. Zad&aacute;v&aacute;n&iacute; v&yacute;sledk&#367; je dostupn&eacute; po p&#345;ihl&aacute;&scaron;en&iacute; admina.</div>`}
           <div class="enhMuted" style="margin-top:6px;">Na stejn&eacute; m&iacute;sto m&#367;&#382;e&scaron; um&iacute;stit v&iacute;c t&yacute;m&#367;. Vyhodnocen&iacute; prob&iacute;h&aacute; od posledn&iacute;ho t&yacute;mu v pr&#367;b&#283;&#382;n&eacute;m po&#345;ad&iacute; k prvn&iacute;mu.</div>
           <div class="kidsTouchBar">
             <div class="kidsTouchHint">
@@ -1140,7 +1142,7 @@
                   <div class="kidsDraftSlot" data-kids-slot="${group.place}">
                     <div class="kidsDraftPlace">${group.place}.</div>
                     <div class="kidsDraftLane">
-                      <button class="btnSmall kidsSlotAssignButton ${selectedTeam ? "is-ready" : ""}" data-kids-slot-assign="${group.place}" ${selectedTeam ? "" : "disabled"}>
+                      <button class="btnSmall kidsSlotAssignButton ${selectedTeam && canWriteShared ? "is-ready" : ""}" data-kids-slot-assign="${group.place}" ${selectedTeam && canWriteShared ? "" : "disabled"}>
                         ${selectedTeam ? `P&#345;esunout sem ${escapeHtml(selectedTeam.name)}` : `Vyber t&yacute;m pro ${group.place}. m&iacute;sto`}
                       </button>
                       ${group.teams.length ? group.teams.map(team => `
@@ -1379,12 +1381,14 @@
       }
       const kidsTeamCard = target.closest(".kidsDraftTeam");
       if (kidsTeamCard && !target.closest("[data-kids-slot-assign]")) {
+        if (!hasSharedWriteAccess()) return;
         ui.selectedKidsTeamId = kidsTeamCard.getAttribute("data-kids-team");
         refresh();
         return;
       }
       const kidsAssignButton = target.closest("[data-kids-slot-assign]");
       if (kidsAssignButton) {
+        if (!requireSharedWriteAccess()) return;
         const place = parseInt(kidsAssignButton.getAttribute("data-kids-slot-assign"), 10);
         assignKidsTeamToPlace(ui.selectedKidsTeamId, place);
         return;
@@ -1499,6 +1503,10 @@
     document.addEventListener("dragstart", function(event){
       const row = event.target.closest(".enhDraftRow, .kidsDraftTeam");
       if (!row) return;
+      if (row.classList.contains("kidsDraftTeam") && !hasSharedWriteAccess()) {
+        event.preventDefault();
+        return;
+      }
       ui.dragTeamId = row.getAttribute("data-team-id") || row.getAttribute("data-kids-team");
       ui.selectedKidsTeamId = ui.dragTeamId;
       row.classList.add("dragging");

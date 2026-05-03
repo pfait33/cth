@@ -251,6 +251,7 @@ async function signInAdmin(email, password){
   await ctx.signInWithEmailAndPassword(ctx.auth, cleanEmail, cleanPassword);
   updateAuthState(ctx.auth.currentUser);
   updateStatus("admin-ready");
+  window.__cthApp?.setUIMode?.("admin");
   if (queuedJob) await flushQueue(true);
   return getState();
 }
@@ -261,6 +262,7 @@ async function signOutAdmin(){
   await ctx.signInAnonymously(ctx.auth);
   updateAuthState(ctx.auth.currentUser);
   updateStatus("read-only");
+  window.__cthApp?.setUIMode?.("kids");
   return getState();
 }
 
@@ -484,6 +486,9 @@ function updateAuthState(user){
   syncState.authEmail = user?.email || "";
   syncState.authProvider = provider || (user?.isAnonymous ? "anonymous" : "");
   syncState.canWrite = isAdminUser(user);
+  if (syncConfig.enabled && !syncState.canWrite) {
+    window.__cthApp?.setUIMode?.("kids");
+  }
 }
 
 function isAdminUser(user){
