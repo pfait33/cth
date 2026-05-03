@@ -66,25 +66,30 @@ window.__cthCloudSyncGetLabel = function(){
 
 window.addEventListener("online", function(){
   if (isConfigured()) {
-    importLatestCloudState().then(startRemoteStateListener);
+    refreshRemoteState();
   } else {
     emitStatus();
   }
 });
 
 document.addEventListener("visibilitychange", function(){
-  if (!document.hidden && isConfigured()) importLatestCloudState().then(startRemoteStateListener);
+  if (!document.hidden && isConfigured()) refreshRemoteState();
 });
 
 bootstrap();
 
 async function bootstrap(){
   if (isConfigured()) {
-    await importLatestCloudState();
-    await startRemoteStateListener();
+    refreshRemoteState();
   } else {
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
   }
+}
+
+function refreshRemoteState(){
+  if (!isConfigured()) return;
+  importLatestCloudState();
+  startRemoteStateListener();
 }
 
 function getState(){
@@ -155,7 +160,7 @@ function saveConfig(nextConfig){
     return getState();
   }
 
-  importLatestCloudState().then(startRemoteStateListener);
+  refreshRemoteState();
   return getState();
 }
 
