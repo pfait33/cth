@@ -1,5 +1,6 @@
 const CLOUD_SYNC_STORAGE_KEY = "klondike_f1_cloud_sync_v1";
 const CLOUD_SYNC_DEVICE_KEY = "klondike_f1_cloud_sync_device_v1";
+const CLOUD_SYNC_META_KEY = "klondike_f1_cloud_sync_meta_v1";
 const FIREBASE_WEB_SDK_VERSION = "10.12.2";
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBxEwRc8nUtF8hyDeSHErMTGuorPs3vZGs",
@@ -17,6 +18,8 @@ let syncTimer = null;
 let syncInFlight = false;
 let lastSyncedFingerprint = "";
 let revisionCounter = 0;
+let unsubscribeRace = null;
+let suppressNextHook = false;
 
 const syncState = {
   status: "disabled",
@@ -63,14 +66,14 @@ window.__cthCloudSyncGetLabel = function(){
 
 window.addEventListener("online", function(){
   if (isConfigured()) {
-    queueCurrentState("browser-online");
+    importLatestCloudState().then(startRemoteStateListener);
   } else {
     emitStatus();
   }
 });
 
 document.addEventListener("visibilitychange", function(){
-  if (!document.hidden && isConfigured()) queueCurrentState("tab-visible");
+  if (!document.hidden && isConfigured()) importLatestCloudState().then(startRemoteStateListener);
 });
 
 bootstrap();
@@ -78,7 +81,7 @@ bootstrap();
 async function bootstrap(){
   if (isConfigured()) {
     await importLatestCloudState();
-    queueCurrentState("bootstrap");
+    await startRemoteStateListener();
   } else {
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
   }
@@ -140,6 +143,8 @@ function saveConfig(nextConfig){
   syncState.configured = isConfigured();
   firebaseContext = null;
   firebaseSdkPromise = null;
+  if (typeof unsubscribeRace === "function") unsubscribeRace();
+  unsubscribeRace = null;
   lastSyncedFingerprint = "";
   queuedJob = null;
 
@@ -153,7 +158,7 @@ function saveConfig(nextConfig){
     return getState();
   }
 
-  queueCurrentState("config-saved");
+  importLatestCloudState().then(startRemoteStateListener);
   return getState();
 }
 
@@ -202,6 +207,10 @@ function queueCurrentState(reason){
 }
 
 function queueSync(snapshot, meta){
+  if (suppressNextHook) {
+    suppressNextHook = false;
+    return;
+  }
   if (!isConfigured()) {
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
     return;
@@ -292,27 +301,71 @@ async function importLatestCloudState(){
       return;
     }
 
-    const localState = app.getClonedState();
-    const remoteTime = Date.parse(remote.lastSavedAt || remoteState.lastSavedAt || "");
-    const localTime = Date.parse(localState.lastSavedAt || "");
-    const shouldImport = Number.isFinite(remoteTime) && (!Number.isFinite(localTime) || remoteTime > localTime);
-
-    if (shouldImport) {
-      lastSyncedFingerprint = JSON.stringify(remoteState);
-      app.setState(remoteState);
-      syncState.lastSuccessAt = new Date().toISOString();
-      syncState.lastRevision = remote.revision || "";
-      syncState.lastError = "";
-      updateStatus("imported");
-      return;
-    }
-
-    updateStatus("synced");
+    applyRemoteState(remote, "startup");
   } catch (error){
     console.warn("Cloud import failed:", error);
     syncState.lastError = normalizeError(error);
     updateStatus("error");
   }
+}
+
+async function startRemoteStateListener(){
+  if (!isConfigured()) return;
+  if (typeof unsubscribeRace === "function") unsubscribeRace();
+
+  try{
+    const ctx = await ensureFirebase();
+    const raceRef = ctx.doc(ctx.db, "races", syncConfig.raceId);
+    unsubscribeRace = ctx.onSnapshot(raceRef, function(snap){
+      if (!snap.exists()) return;
+      applyRemoteState(snap.data(), "listener");
+    }, function(error){
+      console.warn("Cloud listener failed:", error);
+      syncState.lastError = normalizeError(error);
+      updateStatus("error");
+    });
+  } catch (error){
+    console.warn("Cloud listener setup failed:", error);
+    syncState.lastError = normalizeError(error);
+    updateStatus("error");
+  }
+}
+
+function applyRemoteState(remote, source){
+  const app = window.__cthApp;
+  const remoteState = remote?.currentState;
+  const remoteRevision = String(remote?.revision || "");
+  if (!app || typeof app.setState !== "function" || !remoteState || !remoteRevision) return false;
+
+  const meta = loadRemoteMeta();
+  if (meta.revision === remoteRevision || syncState.lastRevision === remoteRevision) {
+    updateStatus(syncState.canWrite ? "synced" : "read-only");
+    return false;
+  }
+
+  if (syncState.canWrite && queuedJob) {
+    updateStatus("pending");
+    return false;
+  }
+
+  lastSyncedFingerprint = JSON.stringify(remoteState);
+  suppressNextHook = true;
+  try{
+    app.setState(remoteState, { preserveCloudSnapshot: true });
+  } finally {
+    suppressNextHook = false;
+  }
+  saveRemoteMeta({
+    revision: remoteRevision,
+    lastSavedAt: remote.lastSavedAt || remoteState.lastSavedAt || null,
+    importedAt: new Date().toISOString(),
+    source: source || "remote"
+  });
+  syncState.lastSuccessAt = new Date().toISOString();
+  syncState.lastRevision = remoteRevision;
+  syncState.lastError = "";
+  updateStatus(source === "listener" ? "remote-updated" : "imported");
+  return true;
 }
 
 async function flushQueue(immediate){
@@ -383,6 +436,12 @@ async function flushQueue(immediate){
     syncState.lastRevision = revision;
     syncState.lastSuccessAt = new Date().toISOString();
     syncState.lastError = "";
+    saveRemoteMeta({
+      revision,
+      lastSavedAt: job.meta.savedAt || job.snapshot.lastSavedAt || null,
+      importedAt: new Date().toISOString(),
+      source: "local-write"
+    });
     updateStatus("synced");
   } catch (error){
     console.warn("Cloud sync failed:", error);
@@ -472,6 +531,7 @@ function loadFirebaseSdk(){
       doc: dbMod.doc,
       setDoc: dbMod.setDoc,
       getDoc: dbMod.getDoc,
+      onSnapshot: dbMod.onSnapshot,
       collection: dbMod.collection,
       serverTimestamp: dbMod.serverTimestamp
     };
@@ -533,6 +593,7 @@ function getStatusLabel(){
   if (syncState.status === "syncing") return "probihajici sync";
   if (syncState.status === "checking-remote") return "kontrola cloudu";
   if (syncState.status === "imported") return "obnoveno z cloudu";
+  if (syncState.status === "remote-updated") return "aktualizovano z cloudu";
   if (syncState.status === "offline") return "ceka na internet";
   if (syncState.status === "error") return syncState.lastError ? `chyba (${syncState.lastError})` : "chyba";
   if (syncState.status === "synced") {
@@ -561,6 +622,18 @@ function getOrCreateDeviceId(){
     : `device-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
   localStorage.setItem(CLOUD_SYNC_DEVICE_KEY, id);
   return id;
+}
+
+function loadRemoteMeta(){
+  try{
+    return JSON.parse(localStorage.getItem(CLOUD_SYNC_META_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveRemoteMeta(meta){
+  localStorage.setItem(CLOUD_SYNC_META_KEY, JSON.stringify(meta || {}));
 }
 
 function clone(value){

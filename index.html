@@ -2581,10 +2581,11 @@ function buildPreviewCTHReportText(){
   function persist(force){
     try{
       if (!dirty && !force) return;
-      state.lastSavedAt = new Date().toISOString();
+      const hadChanges = !!dirty;
+      if (hadChanges) state.lastSavedAt = new Date().toISOString();
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       dirty = false;
-      if (typeof window.__cthCloudSyncHook === "function"){
+      if (hadChanges && typeof window.__cthCloudSyncHook === "function"){
         try{
           window.__cthCloudSyncHook({
             state: deepClone(state),
@@ -3298,10 +3299,15 @@ function renderQueue(){
   window.__cthApp = {
     getState: () => state,
     getClonedState: () => deepClone(state),
-    setState(nextState){
+    setState(nextState, options){
       state = normalizeState(nextState);
-      dirty = true;
-      persist(true);
+      if (options?.preserveCloudSnapshot) {
+        localStorage.setItem(LS_KEY, JSON.stringify(state));
+        dirty = false;
+      } else {
+        dirty = true;
+        persist(true);
+      }
       render();
       return state;
     },
@@ -3362,8 +3368,6 @@ function renderQueue(){
       ensureUniqueTiles(any?.id || state.teams[0].id);
     }
 
-    dirty = true;
-    persist(true);
     render();
   }
 
