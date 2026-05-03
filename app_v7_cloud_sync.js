@@ -130,7 +130,7 @@ function loadConfig(){
 function saveConfig(nextConfig){
   const normalized = {
     enabled: !!nextConfig?.enabled,
-    raceId: String(nextConfig?.raceId || "").trim(),
+    raceId: String(nextConfig?.raceId || "klondike-2026-hlavni-zavod").trim(),
     deviceLabel: String(nextConfig?.deviceLabel || "").trim(),
     firebase: sanitizeFirebaseConfig(nextConfig?.firebase || {})
   };
@@ -167,13 +167,17 @@ function clearConfig(){
 }
 
 function sanitizeFirebaseConfig(firebase){
+  const source = {
+    ...DEFAULT_FIREBASE_CONFIG,
+    ...(firebase || {})
+  };
   return {
-    apiKey: String(firebase.apiKey || "").trim(),
-    authDomain: String(firebase.authDomain || "").trim(),
-    projectId: String(firebase.projectId || "").trim(),
-    storageBucket: String(firebase.storageBucket || "").trim(),
-    messagingSenderId: String(firebase.messagingSenderId || "").trim(),
-    appId: String(firebase.appId || "").trim()
+    apiKey: String(source.apiKey || "").trim(),
+    authDomain: String(source.authDomain || "").trim(),
+    projectId: String(source.projectId || "").trim(),
+    storageBucket: String(source.storageBucket || "").trim(),
+    messagingSenderId: String(source.messagingSenderId || "").trim(),
+    appId: String(source.appId || "").trim()
   };
 }
 
