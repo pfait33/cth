@@ -1282,6 +1282,17 @@
       refresh();
     }
 
+    function hasSharedWriteAccess(){
+      const cloud = window.__cthCloudSync?.getState?.();
+      return !cloud?.config?.enabled || !!cloud.canWrite;
+    }
+
+    function requireSharedWriteAccess(){
+      if (hasSharedWriteAccess()) return true;
+      app.showToast("Zapis je uzamcen. Prihlas admina v Cloud sync.");
+      return false;
+    }
+
     function updateEventRule(key, patch){
       const state = getState();
       state.settings = state.settings || {};
@@ -1318,16 +1329,29 @@
       }
 
       if (target.matches("[data-enh-event-enabled]")) {
+        if (!requireSharedWriteAccess()) {
+          target.checked = !target.checked;
+          refresh();
+          return;
+        }
         updateEventRule(target.getAttribute("data-enh-event-enabled"), { enabled: !!target.checked });
         return;
       }
 
       if (target.matches("[data-enh-event-weight]")) {
+        if (!requireSharedWriteAccess()) {
+          refresh();
+          return;
+        }
         updateEventRule(target.getAttribute("data-enh-event-weight"), { weight: parseFloat(target.value || "1") || 1 });
         return;
       }
 
       if (target.matches("[data-enh-event-tiles]")) {
+        if (!requireSharedWriteAccess()) {
+          refresh();
+          return;
+        }
         updateEventRule(target.getAttribute("data-enh-event-tiles"), {
           tiles: String(target.value || "").split(",").map(x => parseInt(x.trim(), 10)).filter(Number.isFinite)
         });
@@ -1381,14 +1405,19 @@
           refresh();
         }
         if (action === "apply-batch") {
+          if (!requireSharedWriteAccess()) return;
           const validation = app.applyBatchRound(ui.draftPlacements, ui.draftActivityName);
           if (validation?.ok) app.showToast("Kolo zapsano hromadne. Dokonci potvrzeni v rekapitulaci.");
         }
         if (action === "apply-kids-batch") {
+          if (!requireSharedWriteAccess()) return;
           const validation = app.applyBatchRound(ui.draftPlacements, ui.draftActivityName);
           if (validation?.ok) app.showToast("Poradi zadano. Dokonci potvrzeni kola.");
         }
-        if (action === "save-settings") applySettings();
+        if (action === "save-settings") {
+          if (!requireSharedWriteAccess()) return;
+          applySettings();
+        }
         if (action === "save-cloud-sync") applyCloudSyncSettings();
         if (action === "cloud-admin-login") {
           const cloudApi = window.__cthCloudSync;
@@ -1441,6 +1470,7 @@
           }
         }
         if (action === "toggle-animations") {
+          if (!requireSharedWriteAccess()) return;
           const state = getState();
           state.settings.animationsEnabled = !(state.settings?.animationsEnabled !== false);
           app.setState(state);
@@ -1450,6 +1480,7 @@
           if (field) field.focus();
         }
         if (action === "close-round") {
+          if (!requireSharedWriteAccess()) return;
           const result = app.closePendingRound && app.closePendingRound();
           if (result?.status === "confirmed") app.showToast("Kolo potvrzeno a pokracuje k uzavreni.");
           if (result?.status === "finished") app.showToast(`Kolo ${result.roundNo} uzavreno. Muzete zadavat dalsi.`);
@@ -1459,7 +1490,10 @@
       }
 
       const historyEl = target.closest("[data-enh-history]");
-      if (historyEl) handleHistory(historyEl.getAttribute("data-enh-history"), historyEl.getAttribute("data-round"));
+      if (historyEl) {
+        if (!requireSharedWriteAccess()) return;
+        handleHistory(historyEl.getAttribute("data-enh-history"), historyEl.getAttribute("data-round"));
+      }
     });
 
     document.addEventListener("dragstart", function(event){
