@@ -497,6 +497,7 @@
   });
 
   let state = loadOrDefault();
+  let batchRoundApplying = false;
 
   // DOM
   const elTeams = document.getElementById("teams");
@@ -1744,7 +1745,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       checkRoundCompletion();
     }
 
-    persist(false);
+    if (!batchRoundApplying) persist(false);
   }
 
   function applyPlacement(teamId, place){
@@ -1882,6 +1883,10 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function applyBatchRound(placements, activityName){
+    if (state.round.locked || state.round.needsConfirm){
+      showToast("Kolo je uzamčené. Nejdřív dokonči rekapitulaci nebo eventy.");
+      return { ok:false, locked:true, issues:["Kolo je uzamčené. Nejdřív dokonči rekapitulaci nebo eventy."] };
+    }
     if (!requireSharedWriteAccess()) return { ok:false, issues:["Zadávání výsledků je dostupné jen po přihlášení admina."] };
     const validation = validateBatchPlacements(placements);
     if (!validation.ok){
@@ -1892,7 +1897,18 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       state.round.activityName = String(activityName || "").trim();
       if (elActivityName) elActivityName.value = state.round.activityName;
     }
-    getBatchExecutionOrder(placements).forEach(item => applyPlacement(item.teamId, item.place));
+    batchRoundApplying = true;
+    try{
+      getBatchExecutionOrder(placements).forEach(item => applyPlacement(item.teamId, item.place));
+    } finally {
+      batchRoundApplying = false;
+    }
+    if (state.round.needsConfirm){
+      persist(true);
+      openRoundRecapModal();
+    } else {
+      persist(true);
+    }
     return { ok:true };
   }
 
@@ -1927,6 +1943,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     buildEventQueueForRound();
 
     state.round.needsConfirm = true;
+    if (batchRoundApplying) return;
     persist(true);
     openRoundRecapModal();
   }
