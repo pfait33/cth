@@ -40,13 +40,13 @@ service cloud.firestore {
     }
 
     match /races/{raceId} {
-      allow read: if signedIn();
+      allow read: if adminSignedIn();
       allow create, update: if adminSignedIn()
         && validRaceSnapshot(request.resource.data, raceId);
       allow delete: if false;
 
       match /syncEvents/{eventId} {
-        allow read: if signedIn();
+        allow read: if adminSignedIn();
         allow create, update: if adminSignedIn()
           && validSyncEvent(request.resource.data, raceId);
         allow delete: if false;
