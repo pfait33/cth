@@ -53,6 +53,11 @@ service cloud.firestore {
       }
     }
 
+    match /banks/{bankId} {
+      allow read, write: if adminSignedIn()
+        && bankId == "klondike-frfond";
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
