@@ -1,7 +1,9 @@
 const CLOUD_SYNC_STORAGE_KEY = "klondike_f1_cloud_sync_v1";
 const CLOUD_SYNC_DEVICE_KEY = "klondike_f1_cloud_sync_device_v1";
 const CLOUD_SYNC_META_KEY = "klondike_f1_cloud_sync_meta_v1";
+const CLOUD_SYNC_LOCAL_DRAFT_KEY = "klondike_f1_cloud_sync_local_draft_v1";
 const FIREBASE_WEB_SDK_VERSION = "10.12.2";
+const LOCAL_DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_FIREBASE_CONFIG = {
   apiKey: "AIzaSyBxEwRc8nUtF8hyDeSHErMTGuorPs3vZGs",
   authDomain: "cth-klondike-2026.firebaseapp.com",
@@ -20,6 +22,7 @@ let lastSyncedFingerprint = "";
 let revisionCounter = 0;
 let unsubscribeRace = null;
 let suppressNextHook = false;
+let localDraftStartedAt = loadLocalDraftStartedAt();
 
 const syncState = {
   status: "disabled",
@@ -53,10 +56,16 @@ window.__cthCloudSyncHook = function(payload){
   const snapshot = payload?.state;
   if (!snapshot) return;
   syncState.lastSavedAt = payload.savedAt || snapshot.lastSavedAt || null;
-  if (payload?.localOnly || window.__cthApp?.hasLocalRoundDraft?.()) {
+  if (payload?.localOnly) {
+    markLocalDraft();
     updateStatus("local-draft");
     return;
   }
+  if (hasProtectedLocalDraft()) {
+    updateStatus("local-draft");
+    return;
+  }
+  clearLocalDraft();
   if (!isConfigured()){
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
     return;
@@ -65,6 +74,7 @@ window.__cthCloudSyncHook = function(payload){
 };
 
 window.__cthCloudSyncMarkLocalDraft = function(){
+  markLocalDraft();
   if (isConfigured()) updateStatus("local-draft");
 };
 
@@ -207,10 +217,52 @@ function isConfigured(){
   return !!(syncConfig.enabled && String(syncConfig.raceId || "").trim() && hasFirebaseConfig(syncConfig.firebase));
 }
 
+function loadLocalDraftStartedAt(){
+  try{
+    const value = Number(sessionStorage.getItem(CLOUD_SYNC_LOCAL_DRAFT_KEY) || 0);
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    if (Date.now() - value > LOCAL_DRAFT_TTL_MS) {
+      sessionStorage.removeItem(CLOUD_SYNC_LOCAL_DRAFT_KEY);
+      return 0;
+    }
+    return value;
+  } catch {
+    return 0;
+  }
+}
+
+function markLocalDraft(){
+  localDraftStartedAt = Date.now();
+  try{
+    sessionStorage.setItem(CLOUD_SYNC_LOCAL_DRAFT_KEY, String(localDraftStartedAt));
+  } catch {
+    // Session storage is only a convenience marker; sync safety still works in memory.
+  }
+}
+
+function clearLocalDraft(){
+  if (!localDraftStartedAt) return;
+  localDraftStartedAt = 0;
+  try{
+    sessionStorage.removeItem(CLOUD_SYNC_LOCAL_DRAFT_KEY);
+  } catch {
+    // Ignore storage cleanup failures.
+  }
+}
+
+function hasProtectedLocalDraft(app = window.__cthApp){
+  if (!localDraftStartedAt) return false;
+  if (Date.now() - localDraftStartedAt > LOCAL_DRAFT_TTL_MS) {
+    clearLocalDraft();
+    return false;
+  }
+  return !!(typeof app?.hasLocalRoundDraft === "function" && app.hasLocalRoundDraft());
+}
+
 function queueCurrentState(reason){
   const app = window.__cthApp;
   if (!app || typeof app.getClonedState !== "function") return;
-  if (typeof app.hasLocalRoundDraft === "function" && app.hasLocalRoundDraft()) {
+  if (hasProtectedLocalDraft(app)) {
     updateStatus("local-draft");
     return;
   }
@@ -226,10 +278,11 @@ function queueSync(snapshot, meta){
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
     return;
   }
-  if (window.__cthApp?.hasLocalRoundDraft?.()) {
+  if (hasProtectedLocalDraft()) {
     updateStatus("local-draft");
     return;
   }
+  clearLocalDraft();
 
   const safeSnapshot = clone(snapshot);
   const fingerprint = JSON.stringify(safeSnapshot);
@@ -363,10 +416,11 @@ function applyRemoteState(remote, source){
     return false;
   }
 
-  if (typeof app.hasLocalRoundDraft === "function" && app.hasLocalRoundDraft()) {
+  if (hasProtectedLocalDraft(app)) {
     updateStatus("local-draft");
     return false;
   }
+  clearLocalDraft();
 
   lastSyncedFingerprint = JSON.stringify(remoteState);
   suppressNextHook = true;
