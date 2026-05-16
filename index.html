@@ -46,8 +46,10 @@
     .f1TileLabel { pointer-events:none; font-size:15px; font-weight:900; fill:rgba(255,255,255,0.0); }
     .f1TileHit:hover .f1TileLabel,
     .f1TileHit:focus .f1TileLabel { fill:#fff; }
-    .f1TeamMarker { paint-order:stroke; stroke:rgba(0,0,0,0.72); stroke-width:3; }
-    .f1TeamText { pointer-events:none; font-size:13px; font-weight:900; fill:#fff; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(0,0,0,0.72); stroke-width:3; }
+    .f1TeamMarker { paint-order:stroke; stroke:rgba(0,0,0,0.82); stroke-width:4; }
+    .f1TeamText { pointer-events:none; font-size:18px; font-weight:900; fill:#fff; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(0,0,0,0.78); stroke-width:4; }
+    .f1DateHighlight { fill:rgba(255,214,0,0.30); stroke:#ff2020; stroke-width:5; }
+    .f1DateText { pointer-events:none; fill:#090909; font-size:34px; font-weight:1000; font-style:italic; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(255,255,255,0.72); stroke-width:4; }
     .legend { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
     .legendItem { display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:999px; background:rgba(255,255,255,0.03); }
     .history { max-height:240px; overflow:auto; padding-right:4px; }
@@ -3325,6 +3327,13 @@ function renderQueue(){
     { x:474, y:893 }, { x:371, y:881 }, { x:263, y:840 }, { x:198, y:759 }, { x:153, y:665 },
     { x:122, y:584 }, { x:121, y:502 }, { x:146, y:422 }, { x:198, y:349 }, { x:286, y:296 }
   ];
+  const F1_DATE_CELLS = Array.from({ length: 15 }, (_, idx) => ({
+    x: 17 + idx * 84,
+    y: 156,
+    w: idx === 14 ? 77 : 84,
+    h: 62,
+    label: idx < 14 ? String(18 + idx) : "1"
+  }));
 
   function f1TilePoint(tile){
     const trackSize = getTrackSize();
@@ -3335,6 +3344,14 @@ function renderQueue(){
 
   function shortTeamLabel(team){
     return String(team.name || "?").split(/\s+/).map(part => part[0] || "").join("").slice(0, 2).toUpperCase();
+  }
+
+  function currentRaceDateIndex(now = new Date()){
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    if (month === 7 && day >= 18 && day <= 31) return day - 18;
+    if (month === 8 && day === 1) return 14;
+    return -1;
   }
 
   function renderTrack(){
@@ -3376,19 +3393,30 @@ function renderQueue(){
     let markers = "";
     for (const [tile, teams] of tileTeams.entries()){
       const p = f1TilePoint(tile);
-      const gap = Math.min(24, Math.max(16, 72 / Math.max(teams.length, 1)));
+      const radius = teams.length > 1 ? 22 : 27;
+      const fontSize = teams.length > 1 ? 14 : 18;
+      const gap = Math.min(22, Math.max(14, 54 / Math.max(teams.length, 1)));
       const start = -gap * (teams.length - 1) / 2;
       teams.forEach((t, idx) => {
         const x = p.x + start + idx * gap;
-        const y = p.y - 42 - (idx % 2) * 8;
+        const y = p.y + (teams.length > 1 ? ((idx % 2) * 12 - 6) : 0);
         markers += `
           <g aria-label="${escapeHtml(t.name)} na poli ${displayTile(tile)}">
-            <circle class="f1TeamMarker" cx="${x}" cy="${y}" r="18" fill="${t.color}" />
-            <text class="f1TeamText" x="${x}" y="${y}">${escapeHtml(shortTeamLabel(t))}</text>
+            <circle class="f1TeamMarker" cx="${x}" cy="${y}" r="${radius}" fill="${t.color}" />
+            <text class="f1TeamText" x="${x}" y="${y}" style="font-size:${fontSize}px;">${escapeHtml(shortTeamLabel(t))}</text>
           </g>
         `;
       });
     }
+
+    const dateIdx = currentRaceDateIndex();
+    const dateCell = F1_DATE_CELLS[dateIdx];
+    const dateHighlight = dateCell ? `
+      <g aria-label="Aktualni den ${escapeHtml(dateCell.label)}">
+        <rect class="f1DateHighlight" x="${dateCell.x + 2}" y="${dateCell.y + 2}" width="${dateCell.w - 4}" height="${dateCell.h - 4}" rx="6" />
+        <text class="f1DateText" x="${dateCell.x + dateCell.w / 2}" y="${dateCell.y + dateCell.h / 2}">${escapeHtml(dateCell.label)}.</text>
+      </g>
+    ` : "";
 
     function renderInto(svg){
       if (!svg) return;
@@ -3397,6 +3425,7 @@ function renderQueue(){
       svg.classList.add("f1CircuitSvg");
       svg.innerHTML = `
         <image href="./pocitadlo.png" x="0" y="0" width="${boardW}" height="${boardH}" preserveAspectRatio="xMidYMid meet"></image>
+        ${dateHighlight}
         <g>${hits}</g>
         <g>${markers}</g>
       `;
