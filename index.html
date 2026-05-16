@@ -77,6 +77,39 @@
     .hidden{display:none !important;}
     .mode-kids .adminOnly{display:none !important;}
     .kidsTitle{font-size:18px;font-weight:800;}
+    body.cth-auth-required > header,
+    body.cth-auth-required > .wrap { display:none !important; }
+    .cthLogin {
+      min-height:100vh;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:var(--bg);
+    }
+    body.cth-auth-required .cthLogin { display:flex; }
+    .cthLoginCard {
+      width:min(420px, 100%);
+      background:var(--card);
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:16px;
+      padding:16px;
+      box-shadow:0 18px 48px rgba(0,0,0,0.35);
+    }
+    .cthLoginCard h2 { margin:0 0 6px; font-size:18px; }
+    .cthLoginCard p { margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.45; }
+    .cthLoginCard label { display:grid; gap:6px; margin-top:10px; color:var(--muted); font-size:12px; }
+    .cthLoginCard input {
+      width:100%;
+      padding:11px 12px;
+      border-radius:12px;
+      background:#0f1117;
+      border:1px solid rgba(255,255,255,0.12);
+      color:var(--text);
+      font-weight:700;
+    }
+    .cthLoginActions { display:flex; gap:8px; align-items:center; margin-top:14px; flex-wrap:wrap; }
+    .cthLoginError { min-height:18px; color:#ffd6d4; font-size:12px; font-weight:700; margin-top:10px; }
 
     .kidsLayout{display:grid; grid-template-columns: 1fr; gap:12px;}
     @media (min-width: 1020px){
@@ -87,10 +120,28 @@
 </style>
 </head>
 
-<body>
+<body class="cth-auth-required">
+<section class="cthLogin" id="cthLoginView">
+  <form class="cthLoginCard" id="cthLoginForm">
+    <h2>Prihlaseni Klondike CTH</h2>
+    <p>Obsah aplikace je dostupny pouze po prihlaseni pres Firebase e-mail a heslo.</p>
+    <label>E-mail
+      <input id="cthLoginEmail" type="email" autocomplete="username" required />
+    </label>
+    <label>Heslo
+      <input id="cthLoginPassword" type="password" autocomplete="current-password" required />
+    </label>
+    <div class="cthLoginActions">
+      <button class="btnOk" id="cthLoginButton" type="submit">Prihlasit</button>
+      <span class="muted" id="cthLoginStatus">Cekam na Firebase...</span>
+    </div>
+    <div class="cthLoginError" id="cthLoginError"></div>
+  </form>
+</section>
 <header>
   <h1 id="appTitle">Klondike F1 – Bodování CTH</h1>
   <div class="actions">
+    <button id="btnAuthLogout" class="btnSmall">Odhlasit</button>
     <button id="btnToggleUI">Rozbalit administraci</button>
     <button id="btnUndo" class="adminOnly">Zpět</button>
     <button id="btnCopyLastReport" class="adminOnly">Poslední report</button>
@@ -3432,6 +3483,55 @@ function renderQueue(){
 })();
 </script>
 <script type="module" src="./app_v7_cloud_sync.js"></script>
+<script>
+(function(){
+  const form = document.getElementById("cthLoginForm");
+  const email = document.getElementById("cthLoginEmail");
+  const password = document.getElementById("cthLoginPassword");
+  const status = document.getElementById("cthLoginStatus");
+  const error = document.getElementById("cthLoginError");
+  const logout = document.getElementById("btnAuthLogout");
+
+  function setLocked(locked){
+    document.body.classList.toggle("cth-auth-required", locked);
+    if (!locked) error.textContent = "";
+  }
+
+  function refreshFromCloud(){
+    const cloud = window.__cthCloudSync?.getState?.();
+    const unlocked = !!cloud?.canWrite;
+    setLocked(!unlocked);
+    if (status) status.textContent = unlocked ? `Prihlaseno: ${cloud.authEmail || "Firebase"}` : "Prihlaseni vyzadovano";
+  }
+
+  form?.addEventListener("submit", function(event){
+    event.preventDefault();
+    error.textContent = "";
+    status.textContent = "Prihlasuji...";
+    const api = window.__cthCloudSync;
+    if (!api || typeof api.signInAdmin !== "function") {
+      status.textContent = "Firebase se jeste nacita";
+      return;
+    }
+    api.signInAdmin(email.value, password.value).then(function(){
+      password.value = "";
+      refreshFromCloud();
+    }).catch(function(err){
+      setLocked(true);
+      status.textContent = "Prihlaseni vyzadovano";
+      error.textContent = err?.message || "Prihlaseni se nezdarilo.";
+    });
+  });
+
+  logout?.addEventListener("click", function(){
+    window.__cthCloudSync?.signOutAdmin?.().finally(refreshFromCloud);
+  });
+
+  window.addEventListener("cth-cloud-sync-status", refreshFromCloud);
+  window.addEventListener("load", refreshFromCloud);
+  setTimeout(refreshFromCloud, 400);
+})();
+</script>
 <script src="./app_v7_enhancements.js"></script>
 </body>
 </html>
