@@ -403,8 +403,8 @@
 
 <script>
 (() => {
-  const DEFAULT_TRACK_SIZE = 40;
-  const DEFAULT_EVENT_TILES = [3,8,13,18,23,28,33,38];
+  const DEFAULT_TRACK_SIZE = 30;
+  const DEFAULT_EVENT_TILES = [3,7,11,15,19,23,27,30];
   const DEFAULT_PLACE_TO_DELTA = { 1:5, 2:4, 3:3, 4:2, 5:1 };
   const START_PLACE_TO_TILE = (place) => (6 - place); // 1.->5, 2.->4, ... 5.->1
 
@@ -425,11 +425,12 @@
   }
 
   function sanitizeEventTiles(raw, trackSize){
-    const maxTile = Math.max(1, sanitizeTrackSize(trackSize) - 1);
+    const safeTrackSize = sanitizeTrackSize(trackSize);
     const arr = Array.isArray(raw) ? raw : DEFAULT_EVENT_TILES;
     const nums = arr
       .map(x => parseInt(x, 10))
-      .filter(x => Number.isFinite(x) && x >= 1 && x <= maxTile);
+      .map(x => x === 0 ? safeTrackSize : x)
+      .filter(x => Number.isFinite(x) && x >= 1 && x <= safeTrackSize);
     return [...new Set(nums)].sort((a,b) => a - b);
   }
 
@@ -460,7 +461,14 @@
   }
 
   function getEventTilesSet(){
-    return new Set(getEventTilesArray());
+    const trackSize = getTrackSize();
+    return new Set(getEventTilesArray().map(tile => tile === trackSize ? 0 : tile));
+  }
+
+  function displayTile(tile, trackSize = getTrackSize()){
+    const n = parseInt(tile, 10);
+    if (!Number.isFinite(n)) return tile;
+    return n === 0 ? trackSize : n;
   }
 
   function getPlaceToDeltaMap(){
@@ -797,12 +805,13 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
   function getEligibleEventPool(bucket, opts){
     const tile = opts?.tile;
+    const ruleTile = tile === 0 ? getTrackSize() : tile;
     const wantGlobal = !!opts?.wantGlobal;
     const all = (EVENTS[bucket] || []).filter(ev => wantGlobal ? ev.kind.startsWith("global") : !ev.kind.startsWith("global"));
     const eligible = all.filter(ev => {
       const rule = getEventRule(ev);
       if (!rule.enabled) return false;
-      if (rule.tiles.length && tile != null && !rule.tiles.includes(tile)) return false;
+      if (rule.tiles.length && tile != null && !rule.tiles.includes(ruleTile)) return false;
       return true;
     });
     if (eligible.length) return eligible;
@@ -1661,7 +1670,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
         lapsGained: r.lapsGained,
         lap: teamLapTile(winner).lap,
         tile: teamLapTile(winner).tile,
-        event: { title:"Kolize", text:`Kolize: ${overtaker.name} × ${defender.name} (políčko ${collisionTile}) → +1 pro ${winner.name}.` },
+        event: { title:"Kolize", text:`Kolize: ${overtaker.name} × ${defender.name} (políčko ${displayTile(collisionTile)}) → +1 pro ${winner.name}.` },
         source: "kolize",
         collision: { a:overtaker.name, b:defender.name, tile: collisionTile, winner: winner.name }
       });
@@ -1892,14 +1901,14 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
         });
         let collisionTile = null, colliders = null;
         for (const [tile, arr] of groups.entries()){
-          if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
+        if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
         }
         if (!colliders) return;
         const overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.slice().sort((a,b)=>b.total-a.total)[0];
         const defender = colliders.filter(t => t.id !== overtaker.id).slice().sort((a,b)=>b.total-a.total)[0];
         overtaker.total = Math.max(0, overtaker.total + 1);
         collisions.push({
-          tile: collisionTile,
+          tile: displayTile(collisionTile, trackSize),
           a: overtaker.name,
           b: defender.name,
           previewWinner: overtaker.name,
@@ -1924,11 +1933,15 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     const standings = teams
       .filter(t => !t.offTrack)
       .sort((a,b) => b.total - a.total)
-      .map((t, idx) => ({ rank: idx + 1, teamId: t.id, name: t.name, total: t.total, ...lapTile(t) }));
+      .map((t, idx) => {
+        const pos = lapTile(t);
+        return { rank: idx + 1, teamId: t.id, name: t.name, total: t.total, lap: pos.lap, tile: displayTile(pos.tile, trackSize) };
+      });
     const eventHits = teams
       .filter(t => !t.offTrack)
       .map(t => ({ teamId:t.id, name:t.name, ...lapTile(t) }))
-      .filter(t => t.tile != null && eventTiles.has(t.tile));
+      .filter(t => t.tile != null && eventTiles.has(t.tile))
+      .map(t => ({ ...t, tile: displayTile(t.tile, trackSize) }));
 
     return { ok:true, issues:[], order, collisions, eventTiles:eventHits, standings };
   }
@@ -2026,7 +2039,7 @@ if (elActivityName){
     roundEvents.innerHTML = q.length
       ? q.map((it, i) => {
           const t = state.teams.find(x => x.id === it.teamId);
-          return `${i+1}. ${escapeHtml(t?.name ?? it.teamId)} – ${escapeHtml(it.ev.title)} (políčko ${it.tile})`;
+          return `${i+1}. ${escapeHtml(t?.name ?? it.teamId)} – ${escapeHtml(it.ev.title)} (políčko ${displayTile(it.tile)})`;
         }).join("<br/>")
       : "Žádné události.";
 
@@ -2069,7 +2082,7 @@ function buildPreviewCTHReportText(){
     const eventsLine = q.length
       ? q.map(it => {
           const t = state.teams.find(x => x.id === it.teamId);
-          return `${t?.name ?? it.teamId}: ${it.ev.title} (pol. ${it.tile})`;
+          return `${t?.name ?? it.teamId}: ${it.ev.title} (pol. ${displayTile(it.tile)})`;
         }).join(" | ")
       : "bez událostí";
 
@@ -2172,7 +2185,7 @@ function buildPreviewCTHReportText(){
     state.pending = { type:"event", queueIndex: idx, teamId: item.teamId, ev: item.ev, tile: item.tile };
 
     modalTitle.textContent = item.ev.title;
-    modalSub.textContent = `${team.name} • event políčko ${item.tile} • kolo ${state.round.number} • ${idx+1}/${q.length}`;
+    modalSub.textContent = `${team.name} • event políčko ${displayTile(item.tile)} • kolo ${state.round.number} • ${idx+1}/${q.length}`;
     modalBucket.textContent = item.ev.bucket;
     modalEffect.textContent = item.ev.text ?? "";
 
@@ -2868,7 +2881,7 @@ function buildPreviewCTHReportText(){
 
       const rightStats = t.offTrack
         ? `<div class="k">—</div><div class="muted">Mimo trať</div>`
-        : `<div class="k">${(t.baseTotal ?? 0)} / ${t.total} polí</div><div class="muted">Okruhy: ${lap} • Políčko: ${tile}/39</div>`;
+        : `<div class="k">${(t.baseTotal ?? 0)} / ${t.total} polí</div><div class="muted">Okruhy: ${lap} • Políčko: ${displayTile(tile)}/${getTrackSize()}</div>`;
 
       const formAvg = avg((t.stats?.lastPlaces || []).slice(-FORM_WINDOW));
       const formStr = (formAvg == null) ? "" : ` • forma: ${formAvg.toFixed(2)}`;
@@ -2917,7 +2930,7 @@ function buildPreviewCTHReportText(){
     ordered.forEach((t, i) => {
       const { lap, tile } = teamLapTile(t);
       const lapStr = t.offTrack ? "—" : String(lap);
-      const tileStr = t.offTrack ? "mimo mapu" : String(tile);
+      const tileStr = t.offTrack ? "mimo mapu" : String(displayTile(tile));
       const extra = t.offTrack ? "— mimo mapu" : `— ${(t.baseTotal ?? 0)} / ${t.total} polí (${lap} kol)`;
       html += `<tr>
         <td class="k">${i+1}.</td>
@@ -2956,7 +2969,7 @@ function buildPreviewCTHReportText(){
     ordered.forEach((t, i) => {
       const { lap, tile } = teamLapTile(t);
       const lapStr = t.offTrack ? "—" : String(lap);
-      const tileStr = t.offTrack ? "mimo" : String(tile);
+      const tileStr = t.offTrack ? "mimo" : String(displayTile(tile));
       html += `<tr>
         <td class="k">${i+1}.</td>
         <td><span style="display:inline-flex;align-items:center;gap:8px;">
@@ -3025,7 +3038,7 @@ function buildPreviewCTHReportText(){
       const time = ts.toLocaleTimeString("cs-CZ", { hour:"2-digit", minute:"2-digit" });
       const c = h.collision;
       const pair = c ? `${c.a} × ${c.b}` : (h.event?.text || "Kolize");
-      const detail = c ? `políčko ${c.tile} • vítěz: ${c.winner}` : "";
+      const detail = c ? `políčko ${displayTile(c.tile)} • vítěz: ${c.winner}` : "";
       const div = document.createElement("div");
       div.className = "histItem";
       div.innerHTML = `
@@ -3119,7 +3132,7 @@ function renderQueue(){
     elQueueList.innerHTML = q.map((it, idx) => {
       const team = state.teams.find(t => t.id === it.teamId);
       const name = team ? team.name : it.teamId;
-      return `${idx+1}. ${escapeHtml(name)} – ${escapeHtml(it.ev.title)} (políčko ${it.tile})`;
+      return `${idx+1}. ${escapeHtml(name)} – ${escapeHtml(it.ev.title)} (políčko ${displayTile(it.tile)})`;
     }).join("<br/>");
   }
 
@@ -3144,7 +3157,7 @@ function renderQueue(){
       const ev = h.event ? ` • <span class="k">${escapeHtml(h.event.title)}</span>` : "";
       const deltaStr = h.deltaInput ? `${h.deltaInput>0?"+":""}${h.deltaInput}` : "";
       const applied = h.deltaApplied ? ` → ${h.deltaApplied>0?"+":""}${h.deltaApplied}` : "";
-      const pos = (h.tile === null || h.tile === undefined) ? "" : ` • kolo ${h.lap}, políčko ${h.tile}`;
+      const pos = (h.tile === null || h.tile === undefined) ? "" : ` • kolo ${h.lap}, políčko ${displayTile(h.tile)}`;
       const line2 = h.event && h.event.text ? `<div class="muted">${escapeHtml(h.event.text)}</div>` : "";
 
       const div = document.createElement("div");
@@ -3256,7 +3269,7 @@ function renderQueue(){
       if (i % 5 === 0){
         const lx = p.x + nx * 22;
         const ly = p.y + ny * 22;
-        tickSvg += `<text x="${lx}" y="${ly}" fill="rgba(255,255,255,0.40)" font-size="11" text-anchor="middle" dominant-baseline="middle">${i}</text>`;
+        tickSvg += `<text x="${lx}" y="${ly}" fill="rgba(255,255,255,0.40)" font-size="11" text-anchor="middle" dominant-baseline="middle">${displayTile(i)}</text>`;
       }
     }
     gTicks.innerHTML = tickSvg;
@@ -3415,6 +3428,7 @@ function renderQueue(){
     getPlaceDelta,
     getTrackSize,
     getEventTilesArray,
+    displayTile,
     getRaceName,
     getEventThird,
     getEventThirdProfile,

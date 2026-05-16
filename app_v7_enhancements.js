@@ -14,6 +14,7 @@
       lastRoundNumber: null,
       mounted: false
     };
+    const fmtTile = (tile) => typeof app.displayTile === "function" ? app.displayTile(tile) : tile;
 
     const TEAM_BRANDS = {
       mer: { short: "MER", mark: "M", accent: "#00D2BE" },
@@ -179,15 +180,15 @@
               ${preview.ok ? `
                 <div class="enhMuted">Poradi po aplikaci posunu a preview kolizi:</div>
                 <ol class="enhCompactList">
-                  ${preview.standings.map(item => `<li><strong>${escapeHtml(item.name)}</strong> • ${item.total} poli • kolo ${item.lap} • policko ${item.tile}</li>`).join("")}
+                  ${preview.standings.map(item => `<li><strong>${escapeHtml(item.name)}</strong> • ${item.total} poli • kolo ${item.lap} • policko ${fmtTile(item.tile)}</li>`).join("")}
                 </ol>
                 <div class="enhMuted" style="margin-top:8px;">Kolize: ${preview.collisions.length ? "" : "zadne"}</div>
                 <div class="enhPreviewList">
-                  ${preview.collisions.map(col => `<div class="enhPreviewItem"><strong>${escapeHtml(col.a)}</strong> × <strong>${escapeHtml(col.b)}</strong> na poli ${col.tile} • ${escapeHtml(col.resolution)} • preview favorizuje: ${escapeHtml(col.previewWinner)}</div>`).join("")}
+                  ${preview.collisions.map(col => `<div class="enhPreviewItem"><strong>${escapeHtml(col.a)}</strong> × <strong>${escapeHtml(col.b)}</strong> na poli ${fmtTile(col.tile)} • ${escapeHtml(col.resolution)} • preview favorizuje: ${escapeHtml(col.previewWinner)}</div>`).join("")}
                 </div>
                 <div class="enhMuted" style="margin-top:8px;">Event triggery po uzavreni kola:</div>
                 <div class="enhPreviewList">
-                  ${preview.eventTiles.length ? preview.eventTiles.map(ev => `<div class="enhPreviewItem">${escapeHtml(ev.name)} • event pole ${ev.tile}</div>`).join("") : `<div class="enhPreviewItem">Po tomto kole se nespusti zadny event trigger.</div>`}
+                  ${preview.eventTiles.length ? preview.eventTiles.map(ev => `<div class="enhPreviewItem">${escapeHtml(ev.name)} • event pole ${fmtTile(ev.tile)}</div>`).join("") : `<div class="enhPreviewItem">Po tomto kole se nespusti zadny event trigger.</div>`}
                 </div>
               ` : `
                 <div class="enhPreviewItem">${preview.issues.map(issue => escapeHtml(issue)).join("<br />")}</div>
@@ -787,7 +788,7 @@
               ${standings.map(item => `
                 <div class="enhPreviewItem">
                   <strong>${item.rank}.</strong> ${escapeHtml(item.team.name)}
-                  <span class="enhMuted"> • ${item.team.offTrack ? "mimo trat" : `${item.team.total} poli • okruh ${item.lap} • policko ${item.tile}`}</span>
+                  <span class="enhMuted"> • ${item.team.offTrack ? "mimo trat" : `${item.team.total} poli • okruh ${item.lap} • policko ${fmtTile(item.tile)}`}</span>
                 </div>
               `).join("")}
             </div>
@@ -921,7 +922,7 @@
               ${standings.map(item => `
                 <div class="enhPreviewItem">
                   <strong>${item.rank}.</strong> ${escapeHtml(item.team.name)}
-                  <span class="enhMuted"> • ${item.team.offTrack ? "mimo trať" : `${item.team.total} polí • okruh ${item.lap} • políčko ${item.tile}`}</span>
+                  <span class="enhMuted"> • ${item.team.offTrack ? "mimo trať" : `${item.team.total} polí • okruh ${item.lap} • políčko ${fmtTile(item.tile)}`}</span>
                 </div>
               `).join("")}
             </div>
@@ -1059,7 +1060,7 @@
               ${standings.map(item => `
                 <div class="enhPreviewItem">
                   <strong>${item.rank}.</strong> ${escapeHtml(item.team.name)}
-                  <span class="enhMuted"> &bull; ${item.team.offTrack ? "mimo trať" : `${item.team.total} pol&iacute; &bull; okruh ${item.lap} &bull; pol&iacute;čko ${item.tile}`}</span>
+                  <span class="enhMuted"> &bull; ${item.team.offTrack ? "mimo trať" : `${item.team.total} pol&iacute; &bull; okruh ${item.lap} &bull; pol&iacute;čko ${fmtTile(item.tile)}`}</span>
                 </div>
               `).join("")}
             </div>
@@ -1225,7 +1226,7 @@
               ${standings.map(item => `
                 <div class="enhPreviewItem">
                   <strong>${item.rank}.</strong> ${escapeHtml(item.team.name)}
-                  <span class="enhMuted"> &bull; ${item.team.offTrack ? "mimo tra&#357;" : `${item.team.total} pol&iacute; &bull; okruh ${item.lap} &bull; pol&iacute;&#269;ko ${item.tile}`}</span>
+                  <span class="enhMuted"> &bull; ${item.team.offTrack ? "mimo tra&#357;" : `${item.team.total} pol&iacute; &bull; okruh ${item.lap} &bull; pol&iacute;&#269;ko ${fmtTile(item.tile)}`}</span>
                 </div>
               `).join("")}
             </div>
