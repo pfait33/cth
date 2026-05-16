@@ -371,6 +371,76 @@
   margin-top: 14px;
 }
 
+.raceControlTop {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+  grid-template-columns: minmax(520px, 1.35fr) minmax(300px, 0.85fr);
+}
+
+.raceControlTop.is-public {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.36fr);
+}
+
+.raceStatusPanel,
+.raceDraftCompact,
+.raceBelowPanel {
+  display: grid;
+  gap: 10px;
+}
+
+.raceCompactStats {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.raceCompactStat {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 9px 10px;
+  background: rgba(255,255,255,0.04);
+}
+
+.raceCodeList {
+  display: grid;
+  gap: 6px;
+}
+
+.raceCodeRow {
+  display: grid;
+  grid-template-columns: 36px 56px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+}
+
+.raceRoundNarrative {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.raceNarrativeLine {
+  line-height: 1.45;
+}
+
+.kidsTrackPanelHost.is-main .panel.trackBox {
+  padding: 0;
+  overflow: hidden;
+  background: #05070b;
+}
+
+.kidsTrackPanelHost.is-main .panel.trackBox > .k,
+.kidsTrackPanelHost.is-main .panel.trackBox > .legend {
+  display: none;
+}
+
+.kidsTrackPanelHost.is-main svg {
+  max-width: 100%;
+  display: block;
+}
+
 .kidsDraftLane {
   display: grid;
   gap: 6px;
@@ -563,6 +633,12 @@ body.mode-kids .kidsLayout {
   }
 
   .kidsDraftLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .raceControlTop,
+  .raceControlTop.is-public,
+  .raceCompactStats {
     grid-template-columns: 1fr;
   }
 

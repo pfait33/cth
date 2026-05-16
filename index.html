@@ -50,6 +50,10 @@
     .f1TeamText { pointer-events:none; font-size:18px; font-weight:900; fill:#fff; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(0,0,0,0.78); stroke-width:4; }
     .f1DateHighlight { fill:rgba(255,214,0,0.30); stroke:#ff2020; stroke-width:5; }
     .f1DateText { pointer-events:none; fill:#090909; font-size:34px; font-weight:1000; font-style:italic; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(255,255,255,0.72); stroke-width:4; }
+    .f1CenterBoard { fill:rgba(5,7,12,0.78); stroke:rgba(255,255,255,0.72); stroke-width:2; }
+    .f1CenterTitle { fill:#fff; font-size:26px; font-weight:1000; text-anchor:middle; letter-spacing:1px; }
+    .f1CenterRowText { fill:#fff; font-size:21px; font-weight:900; dominant-baseline:central; }
+    .f1CenterMuted { fill:rgba(255,255,255,0.72); font-size:17px; font-weight:800; dominant-baseline:central; }
     .legend { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
     .legendItem { display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:999px; background:rgba(255,255,255,0.03); }
     .history { max-height:240px; overflow:auto; padding-right:4px; }
@@ -90,8 +94,8 @@
     .hidden{display:none !important;}
     .mode-kids .adminOnly{display:none !important;}
     .kidsTitle{font-size:18px;font-weight:800;}
-    body.cth-auth-required > header,
-    body.cth-auth-required > .wrap { display:none !important; }
+    body.cth-auth-required > header { display:flex !important; }
+    body.cth-auth-required > .wrap { display:grid !important; }
     .cthLogin {
       min-height:100vh;
       display:none;
@@ -100,7 +104,7 @@
       padding:18px;
       background:var(--bg);
     }
-    body.cth-auth-required .cthLogin { display:flex; }
+    body.cth-auth-required .cthLogin { display:none; }
     .cthLoginCard {
       width:min(420px, 100%);
       background:var(--card);
@@ -3369,6 +3373,11 @@ function renderQueue(){
     return String(team.name || "?").split(/\s+/).map(part => part[0] || "").join("").slice(0, 2).toUpperCase();
   }
 
+  function f1TeamCode(team){
+    const known = { mer:"MER", mcl:"MCL", ast:"AST", fer:"FER", wil:"ALP" };
+    return known[team.id] || String(team.name || "T").replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase().padEnd(3, "?");
+  }
+
   function currentRaceDateIndex(now = new Date()){
     const month = now.getMonth() + 1;
     const day = now.getDate();
@@ -3417,7 +3426,7 @@ function renderQueue(){
     for (const [tile, teams] of tileTeams.entries()){
       const p = f1TilePoint(tile);
       const radius = teams.length > 1 ? 22 : 27;
-      const fontSize = teams.length > 1 ? 14 : 18;
+      const fontSize = teams.length > 1 ? 12 : 16;
       const gap = Math.min(22, Math.max(14, 54 / Math.max(teams.length, 1)));
       const start = -gap * (teams.length - 1) / 2;
       teams.forEach((t, idx) => {
@@ -3426,7 +3435,7 @@ function renderQueue(){
         markers += `
           <g aria-label="${escapeHtml(t.name)} na poli ${displayTile(tile)}">
             <circle class="f1TeamMarker" cx="${x}" cy="${y}" r="${radius}" fill="${t.color}" />
-            <text class="f1TeamText" x="${x}" y="${y}" style="font-size:${fontSize}px;">${escapeHtml(shortTeamLabel(t))}</text>
+            <text class="f1TeamText" x="${x}" y="${y}" style="font-size:${fontSize}px;">${escapeHtml(f1TeamCode(t))}</text>
           </g>
         `;
       });
@@ -3441,6 +3450,30 @@ function renderQueue(){
       </g>
     ` : "";
 
+    const standings = state.teams.slice().sort((a,b) => {
+      if (a.offTrack && b.offTrack) return 0;
+      if (a.offTrack) return 1;
+      if (b.offTrack) return -1;
+      return b.total - a.total;
+    });
+    const centerRows = standings.map((team, idx) => {
+      const pos = teamLapTile(team);
+      const tileText = team.offTrack ? "OUT" : `P${displayTile(pos.tile)}`;
+      const y = 500 + idx * 34;
+      return `
+        <circle cx="434" cy="${y}" r="10" fill="${team.color}" stroke="rgba(0,0,0,0.75)" stroke-width="2" />
+        <text class="f1CenterRowText" x="456" y="${y}">${idx + 1}. ${escapeHtml(f1TeamCode(team))}</text>
+        <text class="f1CenterMuted" x="690" y="${y}" text-anchor="end">${escapeHtml(tileText)}</text>
+      `;
+    }).join("");
+    const centerBoard = `
+      <g aria-label="Aktualni poradi">
+        <rect class="f1CenterBoard" x="380" y="405" width="350" height="300" rx="18" />
+        <text class="f1CenterTitle" x="555" y="455">PORADI</text>
+        ${centerRows}
+      </g>
+    `;
+
     function renderInto(svg){
       if (!svg) return;
       svg.setAttribute("viewBox", `0 0 ${boardW} ${boardH}`);
@@ -3449,6 +3482,7 @@ function renderQueue(){
       svg.innerHTML = `
         <image href="./pocitadlo.png" x="0" y="0" width="${boardW}" height="${boardH}" preserveAspectRatio="xMidYMid meet"></image>
         ${dateHighlight}
+        ${centerBoard}
         <g>${hits}</g>
         <g>${markers}</g>
       `;
@@ -3664,6 +3698,7 @@ function renderQueue(){
     const cloud = window.__cthCloudSync?.getState?.();
     const unlocked = !!cloud?.canWrite;
     setLocked(!unlocked);
+    if (logout) logout.style.display = unlocked ? "" : "none";
     if (status) status.textContent = unlocked ? `Prihlaseno: ${cloud.authEmail || "Firebase"}` : "Prihlaseni vyzadovano";
   }
 

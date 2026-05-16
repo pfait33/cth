@@ -1256,6 +1256,198 @@
       }
     }
 
+    function renderPublicPanelV2(state){
+      const mount = document.getElementById("enhKidsPublicPanel");
+      if (!mount) return;
+      const canWriteShared = hasSharedWriteAccess();
+      const cloud = window.__cthCloudSync?.getState?.() || { label:"vypnuto", canWrite:false, authEmail:"", config:{ enabled:false } };
+      const touchMode = isLikelyTouchDevice();
+      const selectedTeam = getSelectedKidsTeam(state);
+      const onTrack = state.teams.filter(t => !t.offTrack).sort((a,b) => b.total - a.total);
+      const leader = onTrack[0];
+      const moved = Object.values(state.round?.moved || {}).filter(Boolean).length;
+      const recentRounds = (state.roundArchive || []).slice().sort((a,b) => (b.roundNo || 0) - (a.roundNo || 0)).slice(0, 2);
+      const standings = state.teams.slice().sort((a,b) => {
+        if (a.offTrack && b.offTrack) return 0;
+        if (a.offTrack) return 1;
+        if (b.offTrack) return -1;
+        return b.total - a.total;
+      }).map((team, index) => {
+        const pos = app.teamLapTile(team);
+        return { rank:index + 1, team, lap:pos.lap, tile:pos.tile };
+      });
+      const groupedDraftTeams = [1,2,3,4,5].map(place => ({
+        place,
+        teams: state.teams
+          .filter(team => (parseInt(ui.draftPlacements[team.id], 10) || 0) === place)
+          .sort((a,b) => getTeamBrand(a).short.localeCompare(getTeamBrand(b).short))
+      }));
+      const preview = app.buildBatchRoundPreview(ui.draftPlacements);
+
+      function code(teamOrId){
+        const team = typeof teamOrId === "string" ? state.teams.find(t => t.id === teamOrId || t.name === teamOrId) : teamOrId;
+        if (!team) return String(teamOrId || "TYM").slice(0, 3).toUpperCase();
+        return getTeamBrand(team).short;
+      }
+
+      function snapshotTeam(round, teamId, which){
+        const snap = round?.[which];
+        return snap?.teams?.find(t => t.id === teamId) || null;
+      }
+
+      function tileFromTeam(team){
+        if (!team || team.offTrack) return null;
+        const size = app.getTrackSize();
+        return ((team.total % size) + size) % size;
+      }
+
+      function describeRound(round){
+        const order = state.teams.slice().sort((a,b) => {
+          const sa = snapshotTeam(round, a.id, "startSnapshot");
+          const sb = snapshotTeam(round, b.id, "startSnapshot");
+          if (!sa && !sb) return 0;
+          if (!sa) return 1;
+          if (!sb) return -1;
+          return (sa.total || 0) - (sb.total || 0);
+        });
+        return order.map((team, orderIdx) => {
+          const start = snapshotTeam(round, team.id, "startSnapshot");
+          const end = snapshotTeam(round, team.id, "endSnapshot");
+          const startTile = tileFromTeam(start);
+          const endTile = tileFromTeam(end);
+          const place = round.placements?.[team.id];
+          const delta = round.deltas?.[team.id];
+          const collisionBits = (round.collisions || [])
+            .filter(c => c.a === team.name || c.b === team.name || c.winner === team.name)
+            .map(c => {
+              const rival = c.a === team.name ? c.b : c.a;
+              const won = c.winner === team.name;
+              return `na poli ${fmtTile(c.tile)} se potkal s ${code(rival)} a kolizi ${won ? "vyhral" : "prohral"}`;
+            });
+          const eventBits = (round.resolvedEvents || [])
+            .filter(ev => ev.teamId === team.id)
+            .map(ev => `${escapeHtml(ev.title || "event")}: ${escapeHtml(ev.effectText || ev.text || (ev.applied === false ? "neaplikovano" : "aplikovano"))}`);
+          const parts = [
+            `${code(team)} startoval z pole ${startTile == null ? "mimo trat" : fmtTile(startTile)}.`,
+            orderIdx === 0 ? "Protoze byl posledni, zahajil postup jako prvni." : `Do postupu sel jako ${orderIdx + 1}. tym od konce.`,
+            place ? `Umistil se na ${place}. miste, posunul se o ${delta > 0 ? "+" : ""}${delta} pole.` : "V tomto kole nema ulozene umisteni.",
+            endTile == null ? "Po vyhodnoceni skoncil mimo trat." : `Po vyhodnoceni skoncil na poli ${fmtTile(endTile)}.`
+          ];
+          if (collisionBits.length) parts.push(`Kolize: ${collisionBits.join("; ")}.`);
+          if (eventBits.length) parts.push(`Eventy: ${eventBits.join("; ")}.`);
+          return `<div class="enhPreviewItem raceNarrativeLine">${parts.join(" ")}</div>`;
+        }).join("");
+      }
+
+      const raceHeader = `
+        <div class="raceCompactStats">
+          <div class="raceCompactStat"><div class="enhMuted">Kolo</div><strong>${state.round?.number ?? 1}</strong></div>
+          <div class="raceCompactStat"><div class="enhMuted">Leader</div><strong>${leader ? escapeHtml(code(leader)) : "&mdash;"}</strong></div>
+          <div class="raceCompactStat"><div class="enhMuted">Zadano</div><strong>${moved}/5</strong></div>
+        </div>
+      `;
+
+      const adminLogin = cloud.canWrite ? `
+        <div class="kidsAdminStatus">Admin prihlasen</div>
+        <div class="enhMuted">${escapeHtml(cloud.authEmail || "admin")}</div>
+        <div class="kidsAdminActions">
+          <button class="btnSmall" data-enh-action="cloud-admin-logout">Odhlasit</button>
+        </div>
+      ` : `
+        <div class="kidsAdminStatus">Pouze sledovani</div>
+        <div class="kidsAdminLoginPanel">
+          <input class="kidsAdminInput" data-cloud-admin-email type="email" placeholder="Admin e-mail" autocomplete="username" />
+          <input class="kidsAdminInput" data-cloud-admin-password type="password" placeholder="Heslo" autocomplete="current-password" />
+          <button class="btnOk" data-enh-action="cloud-admin-login">Prihlasit admina</button>
+        </div>
+        <div class="enhMuted">${escapeHtml(cloud.label || "cloud")}</div>
+      `;
+
+      const draftPanel = `
+        <div class="kidsPublicCard kidsF1Card raceDraftCompact">
+          <div class="enhHistoryHead">
+            <div>
+              <div class="enhMuted">Zadani postupu</div>
+              <div class="big" style="font-size:18px;">Drag and drop</div>
+            </div>
+            <button class="btnOk" data-enh-action="${(state.round?.needsConfirm || state.round?.locked) ? "close-round" : "apply-kids-batch"}" ${canWriteShared ? "" : "disabled"}>${(state.round?.needsConfirm || state.round?.locked) ? (state.round?.needsConfirm ? "Dokoncit rekapitulaci" : "Vyhodnotit eventy") : "Potvrdit"}</button>
+          </div>
+          <div class="kidsDraftBoard">
+            ${groupedDraftTeams.map(group => `
+              <div class="kidsDraftSlot" data-kids-slot="${group.place}">
+                <div class="kidsDraftPlace">${group.place}.</div>
+                <div class="kidsDraftLane">
+                  <button class="btnSmall kidsSlotAssignButton ${selectedTeam && canWriteShared ? "is-ready" : ""}" data-kids-slot-assign="${group.place}" ${selectedTeam && canWriteShared ? "" : "disabled"}>
+                    ${selectedTeam ? `${escapeHtml(code(selectedTeam))} sem` : `${group.place}. misto`}
+                  </button>
+                  ${group.teams.length ? group.teams.map(team => `
+                    <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${canWriteShared && !touchMode ? "true" : "false"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
+                      <div class="kidsTeamLead">
+                        <span class="kidsTeamLogo" style="--logo-accent:${getTeamBrand(team).accent};">${escapeHtml(getTeamBrand(team).mark)}</span>
+                        <div class="kidsTeamNameRow"><span class="kidsTeamWordmark">${escapeHtml(code(team))}</span></div>
+                      </div>
+                    </div>
+                  `).join("") : `<div class="kidsDraftEmpty">Sem pretahni tym</div>`}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+          <div class="enhPreviewItem">
+            ${preview.ok ? `${preview.collisions.length} kolizi, ${preview.eventTiles.length} event triggeru` : escapeHtml(preview.issues.join(", "))}
+          </div>
+        </div>
+      `;
+
+      mount.innerHTML = `
+        <div class="raceControlTop ${canWriteShared ? "" : "is-public"}">
+          <div class="kidsTrackPanelHost is-main"></div>
+          ${canWriteShared ? draftPanel : `<div class="kidsPublicCard kidsF1Card kidsAdminGate">${adminLogin}</div>`}
+        </div>
+        <div class="raceBelowPanel" style="margin-top:14px;">
+          <div class="kidsPublicCard kidsF1Card raceStatusPanel">
+            <div class="enhHistoryHead">
+              <div>
+                <div class="enhMuted">Stav zavodu</div>
+                <div class="big">${escapeHtml(state.settings?.raceName || "VC Klondike")}</div>
+              </div>
+              ${raceHeader}
+            </div>
+            <div class="raceCodeList">
+              ${standings.map(item => `
+                <div class="raceCodeRow">
+                  <strong>${item.rank}.</strong>
+                  <span class="enhTag">${escapeHtml(code(item.team))}</span>
+                  <span class="enhMuted">${item.team.offTrack ? "mimo trat" : `${item.team.total} poli, pole ${fmtTile(item.tile)}`}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          <div class="kidsPublicCard kidsF1Card">
+            <div class="enhHistoryHead">
+              <div>
+                <div class="enhMuted">Historie</div>
+                <div class="big" style="font-size:18px;">Posledni 2 kola</div>
+              </div>
+            </div>
+            <div class="raceRoundNarrative">
+              ${recentRounds.length ? recentRounds.map(round => `
+                <div class="enhPreviewItem">
+                  <strong>Kolo ${round.roundNo}: ${escapeHtml(round.activityName || "bez nazvu")}</strong>
+                  <div class="raceRoundNarrative">${describeRound(round)}</div>
+                </div>
+              `).join("") : `<div class="enhPreviewItem">Zatim nejsou potvrzena zadna kola.</div>`}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const trackHost = mount.querySelector(".kidsTrackPanelHost");
+      const trackPanel = document.querySelector("#kidsView .kidsRight .trackBox");
+      if (trackHost && trackPanel) {
+        trackHost.innerHTML = `<div class="panel trackBox kidsTrackReplica">${trackPanel.innerHTML}</div>`;
+      }
+    }
+
     function refresh(){
       if (!ensureMounts()) return;
       renderShell();
