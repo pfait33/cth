@@ -53,11 +53,19 @@ window.__cthCloudSyncHook = function(payload){
   const snapshot = payload?.state;
   if (!snapshot) return;
   syncState.lastSavedAt = payload.savedAt || snapshot.lastSavedAt || null;
+  if (payload?.localOnly || window.__cthApp?.hasLocalRoundDraft?.()) {
+    updateStatus("local-draft");
+    return;
+  }
   if (!isConfigured()){
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
     return;
   }
   queueSync(snapshot, payload);
+};
+
+window.__cthCloudSyncMarkLocalDraft = function(){
+  if (isConfigured()) updateStatus("local-draft");
 };
 
 window.__cthCloudSyncGetLabel = function(){
@@ -202,6 +210,10 @@ function isConfigured(){
 function queueCurrentState(reason){
   const app = window.__cthApp;
   if (!app || typeof app.getClonedState !== "function") return;
+  if (typeof app.hasLocalRoundDraft === "function" && app.hasLocalRoundDraft()) {
+    updateStatus("local-draft");
+    return;
+  }
   queueSync(app.getClonedState(), { reason, savedAt: app.getState?.()?.lastSavedAt || null, force: true });
 }
 
@@ -212,6 +224,10 @@ function queueSync(snapshot, meta){
   }
   if (!isConfigured()) {
     updateStatus(syncConfig.enabled ? "not-configured" : "disabled");
+    return;
+  }
+  if (window.__cthApp?.hasLocalRoundDraft?.()) {
+    updateStatus("local-draft");
     return;
   }
 
@@ -344,6 +360,11 @@ function applyRemoteState(remote, source){
 
   if (syncState.canWrite && queuedJob) {
     updateStatus("pending");
+    return false;
+  }
+
+  if (typeof app.hasLocalRoundDraft === "function" && app.hasLocalRoundDraft()) {
+    updateStatus("local-draft");
     return false;
   }
 
@@ -593,6 +614,7 @@ function getStatusLabel(){
   if (syncState.status === "checking-remote") return "kontrola cloudu";
   if (syncState.status === "imported") return "obnoveno z cloudu";
   if (syncState.status === "remote-updated") return "aktualizovano z cloudu";
+  if (syncState.status === "local-draft") return "rozpracovane kolo jen zde";
   if (syncState.status === "offline") return "ceka na internet";
   if (syncState.status === "error") return syncState.lastError ? `chyba (${syncState.lastError})` : "chyba";
   if (syncState.status === "synced") {

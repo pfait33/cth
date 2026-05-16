@@ -1162,7 +1162,7 @@
             </div>
             <button class="btnOk" data-enh-action="${(state.round?.needsConfirm || state.round?.locked) ? "close-round" : "apply-kids-batch"}" ${canWriteShared ? "" : "disabled"}>${(state.round?.needsConfirm || state.round?.locked) ? (state.round?.needsConfirm ? "Dokon&#269;it rekapitulaci kola" : "Pokra&#269;ovat ve vyhodnocen&iacute; event&#367;") : "Potvrdit po&#345;ad&iacute;"}</button>
           </div>
-          ${(state.round?.needsConfirm || state.round?.locked) && canWriteShared ? `<div class="enhPreviewItem" style="margin-top:10px;"><strong>Kolo je rozpracovan&eacute;.</strong> Pokra&#269;uj v uzav&#345;en&iacute; tady, i kdy&#382; bylo zad&aacute;no na jin&eacute;m za&#345;&iacute;zen&iacute;.</div>` : ""}
+          ${(state.round?.needsConfirm || state.round?.locked) && canWriteShared ? `<div class="enhPreviewItem" style="margin-top:10px;"><strong>Kolo je rozpracovan&eacute; na tomto za&#345;&iacute;zen&iacute;.</strong> Dokon&#269;i rekapitulaci a eventy, teprve potom se ode&#353;le do cloudu.</div>` : ""}
           ${canWriteShared ? "" : `<div class="enhPreviewItem" style="margin-top:10px;">Re&#382;im pouze pro sledov&aacute;n&iacute;. Zad&aacute;v&aacute;n&iacute; v&yacute;sledk&#367; je dostupn&eacute; po p&#345;ihl&aacute;&scaron;en&iacute; admina.</div>`}
           <div class="enhMuted" style="margin-top:6px;">Na stejn&eacute; m&iacute;sto m&#367;&#382;e&scaron; um&iacute;stit v&iacute;c t&yacute;m&#367;. Vyhodnocen&iacute; prob&iacute;h&aacute; od posledn&iacute;ho t&yacute;mu v pr&#367;b&#283;&#382;n&eacute;m po&#345;ad&iacute; k prvn&iacute;mu.</div>
           <div class="kidsTouchBar">

@@ -1988,7 +1988,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       batchRoundApplying = false;
     }
     if (state.round.needsConfirm){
-      persist(true);
+      persist(true, { localOnly: true });
       openRoundRecapModal();
     } else {
       persist(true);
@@ -2028,7 +2028,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
 
     state.round.needsConfirm = true;
     if (batchRoundApplying) return;
-    persist(true);
+    persist(true, { localOnly: true });
     openRoundRecapModal();
   }
 
@@ -2182,7 +2182,7 @@ function buildPreviewCTHReportText(){
     updateRollingFormFromRoundPlacements();
 
     closeRoundModal();
-    persist(true);
+    persist(true, { localOnly: true });
     render();
 
     if (state.round.eventQueue.length > 0) openQueuedEventAtIndex(0);
@@ -2217,7 +2217,7 @@ function buildPreviewCTHReportText(){
       undoStack.push(deepClone(state));
       dirty = true;
       item.ev = rollEventForTeam(team);
-      persist(false);
+      persist(false, { localOnly: true });
       render();
       openQueuedEventAtIndex(idx);
     };
@@ -2471,7 +2471,7 @@ function buildPreviewCTHReportText(){
     state.round.eventQueue.splice(p.queueIndex, 1);
     state.pending = null;
 
-    persist(true);
+    persist(true, { localOnly: true });
     render();
 
     if (state.round.eventQueue.length > 0) openQueuedEventAtIndex(0);
@@ -2480,6 +2480,7 @@ function buildPreviewCTHReportText(){
 
   // Po vyhodnocení událostí: připravit další kolo + uložit finální report
   function finishRoundAndStartNext(){
+    dirty = true;
     const finishedRoundNo = state.round.number;
     const resolvedEvents = state.round.resolvedEvents || [];
 
@@ -2698,19 +2699,41 @@ function buildPreviewCTHReportText(){
     }
   }
 
-  function persist(force){
+  function hasLocalRoundDraft(){
+    const round = state?.round || {};
+    const moved = round.moved && Object.values(round.moved).some(Boolean);
+    const placements = round.placements && Object.keys(round.placements).length > 0;
+    return !!(
+      moved ||
+      placements ||
+      round.needsConfirm ||
+      round.locked ||
+      state?.pending?.type === "event"
+    );
+  }
+
+  function persist(force, options){
     try{
       if (!dirty && !force) return;
       const hadChanges = !!dirty;
+      const localOnly = !!options?.localOnly || (hasLocalRoundDraft() && !options?.allowRoundDraftCloudSync);
       if (hadChanges) state.lastSavedAt = new Date().toISOString();
       localStorage.setItem(LS_KEY, JSON.stringify(state));
       dirty = false;
-      if (hadChanges && typeof window.__cthCloudSyncHook === "function"){
+      if (hadChanges && localOnly && typeof window.__cthCloudSyncMarkLocalDraft === "function"){
+        try{
+          window.__cthCloudSyncMarkLocalDraft();
+        } catch (syncErr){
+          console.warn("Cloud local draft marker failed:", syncErr);
+        }
+      }
+      if (hadChanges && !localOnly && typeof window.__cthCloudSyncHook === "function"){
         try{
           window.__cthCloudSyncHook({
             state: deepClone(state),
             force: !!force,
-            savedAt: state.lastSavedAt
+            savedAt: state.lastSavedAt,
+            localOnly: false
           });
         } catch (syncErr){
           console.warn("Cloud sync hook failed:", syncErr);
@@ -3545,6 +3568,7 @@ function renderQueue(){
   window.__cthApp = {
     getState: () => state,
     getClonedState: () => deepClone(state),
+    hasLocalRoundDraft,
     setState(nextState, options){
       state = normalizeState(nextState);
       if (options?.preserveCloudSnapshot) {
