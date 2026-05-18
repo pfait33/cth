@@ -1398,11 +1398,7 @@
         </div>
       `;
 
-      mount.innerHTML = `
-        <div class="raceControlTop ${canWriteShared ? "" : "is-public"}">
-          <div class="kidsTrackPanelHost is-main"></div>
-          ${canWriteShared ? draftPanel : `<div class="kidsPublicCard kidsF1Card kidsAdminGate">${adminLogin}</div>`}
-        </div>
+      const detailPanels = canWriteShared ? `
         <div class="raceBelowPanel" style="margin-top:14px;">
           <div class="kidsPublicCard kidsF1Card raceStatusPanel">
             <div class="enhHistoryHead">
@@ -1439,6 +1435,14 @@
             </div>
           </div>
         </div>
+      ` : "";
+
+      mount.innerHTML = `
+        <div class="raceControlTop ${canWriteShared ? "" : "is-public"}">
+          <div class="kidsTrackPanelHost is-main"></div>
+          ${canWriteShared ? draftPanel : `<div class="kidsPublicCard kidsF1Card kidsAdminGate">${adminLogin}</div>`}
+        </div>
+        ${detailPanels}
       `;
 
       const trackHost = mount.querySelector(".kidsTrackPanelHost");

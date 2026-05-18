@@ -94,8 +94,10 @@
     .hidden{display:none !important;}
     .mode-kids .adminOnly{display:none !important;}
     .kidsTitle{font-size:18px;font-weight:800;}
-    body.cth-auth-required > header { display:flex !important; }
+    body.cth-auth-required > header { display:none !important; }
     body.cth-auth-required > .wrap { display:grid !important; }
+    body.cth-auth-required #adminView { display:none !important; }
+    body.cth-auth-required #kidsView > .panel:first-child { display:none !important; }
     .cthLogin {
       min-height:100vh;
       display:none;
