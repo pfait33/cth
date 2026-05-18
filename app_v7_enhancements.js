@@ -1403,7 +1403,7 @@
           <div class="kidsPublicCard kidsF1Card raceStatusPanel">
             <div class="enhHistoryHead">
               <div>
-                <div class="enhMuted">Stav zavodu</div>
+                <div class="enhMuted">Stav závodu</div>
                 <div class="big">${escapeHtml(state.settings?.raceName || "VC Klondike")}</div>
               </div>
               ${raceHeader}
@@ -1413,7 +1413,7 @@
                 <div class="raceCodeRow">
                   <strong>${item.rank}.</strong>
                   <span class="enhTag">${escapeHtml(code(item.team))}</span>
-                  <span class="enhMuted">${item.team.offTrack ? "mimo trat" : `${item.team.total} poli, pole ${fmtTile(item.tile)}`}</span>
+                  <span class="enhMuted">${item.team.offTrack ? "0 okr. / mimo trať" : `${item.lap} okr. / pole ${fmtTile(item.tile)} • ${item.team.total} polí`}</span>
                 </div>
               `).join("")}
             </div>
@@ -1422,7 +1422,7 @@
             <div class="enhHistoryHead">
               <div>
                 <div class="enhMuted">Historie</div>
-                <div class="big" style="font-size:18px;">Posledni 2 kola</div>
+                <div class="big" style="font-size:18px;">Poslední 2 kola</div>
               </div>
             </div>
             <div class="raceRoundNarrative">
@@ -1431,7 +1431,7 @@
                   <strong>Kolo ${round.roundNo}: ${escapeHtml(round.activityName || "bez nazvu")}</strong>
                   <div class="raceRoundNarrative">${describeRound(round)}</div>
                 </div>
-              `).join("") : `<div class="enhPreviewItem">Zatim nejsou potvrzena zadna kola.</div>`}
+              `).join("") : `<div class="enhPreviewItem">Zatím nejsou potvrzena žádná kola.</div>`}
             </div>
           </div>
         </div>

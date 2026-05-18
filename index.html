@@ -52,8 +52,8 @@
     .f1DateText { pointer-events:none; fill:#090909; font-size:34px; font-weight:1000; font-style:italic; text-anchor:middle; dominant-baseline:central; paint-order:stroke; stroke:rgba(255,255,255,0.72); stroke-width:4; }
     .f1CenterBoard { fill:rgba(5,7,12,0.78); stroke:rgba(255,255,255,0.72); stroke-width:2; }
     .f1CenterTitle { fill:#fff; font-size:26px; font-weight:1000; text-anchor:middle; letter-spacing:1px; }
-    .f1CenterRowText { fill:#fff; font-size:21px; font-weight:900; dominant-baseline:central; }
-    .f1CenterMuted { fill:rgba(255,255,255,0.72); font-size:17px; font-weight:800; dominant-baseline:central; }
+    .f1CenterRowText { fill:#fff; font-size:19px; font-weight:900; dominant-baseline:central; }
+    .f1CenterMuted { fill:rgba(255,255,255,0.78); font-size:15px; font-weight:800; dominant-baseline:central; }
     .legend { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
     .legendItem { display:flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid rgba(255,255,255,0.08); border-radius:999px; background:rgba(255,255,255,0.03); }
     .history { max-height:240px; overflow:auto; padding-right:4px; }
@@ -3460,27 +3460,19 @@ function renderQueue(){
     });
     const centerRows = standings.map((team, idx) => {
       const pos = teamLapTile(team);
-      const tileText = team.offTrack ? "OUT" : `P${displayTile(pos.tile)}`;
+      const tileText = team.offTrack ? "0 okr. / mimo trať" : `${pos.lap} okr. / pole ${displayTile(pos.tile)}`;
       const y = 500 + idx * 34;
       return `
         <circle cx="434" cy="${y}" r="10" fill="${team.color}" stroke="rgba(0,0,0,0.75)" stroke-width="2" />
         <text class="f1CenterRowText" x="456" y="${y}">${idx + 1}. ${escapeHtml(f1TeamCode(team))}</text>
-        <text class="f1CenterMuted" x="690" y="${y}" text-anchor="end">${escapeHtml(tileText)}</text>
+        <text class="f1CenterMuted" x="730" y="${y}" text-anchor="end">${escapeHtml(tileText)}</text>
       `;
     }).join("");
     const centerBoard = `
       <g aria-label="Aktualni poradi">
-        <rect class="f1CenterBoard" x="380" y="405" width="350" height="300" rx="18" />
-        <text class="f1CenterTitle" x="555" y="455">PORADI</text>
+        <rect class="f1CenterBoard" x="360" y="405" width="395" height="300" rx="18" />
+        <text class="f1CenterTitle" x="557" y="455">POŘADÍ</text>
         ${centerRows}
-      </g>
-    `;
-    const tileColorCorrections = `
-      <g aria-label="Korekce barev eventovych poli">
-        <path d="M 1011 291 L 1092 289 L 1122 340 L 1088 399 L 1022 361 L 978 348 Z" fill="#ffd400" stroke="rgba(255,255,255,0.86)" stroke-width="2" />
-        <text x="1059" y="342" fill="#080808" font-size="37" font-weight="1000" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="rgba(255,255,255,0.35)" stroke-width="2">7</text>
-        <path d="M 1090 331 L 1138 351 L 1139 445 L 1073 445 L 1050 389 Z" fill="#080808" stroke="rgba(255,255,255,0.86)" stroke-width="2" />
-        <text x="1105" y="389" fill="#ffffff" font-size="37" font-weight="1000" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="rgba(0,0,0,0.72)" stroke-width="3">8</text>
       </g>
     `;
 
@@ -3491,7 +3483,6 @@ function renderQueue(){
       svg.classList.add("f1CircuitSvg");
       svg.innerHTML = `
         <image href="./pocitadlo.png" x="0" y="0" width="${boardW}" height="${boardH}" preserveAspectRatio="xMidYMid meet"></image>
-        ${tileColorCorrections}
         ${dateHighlight}
         ${centerBoard}
         <g>${hits}</g>
