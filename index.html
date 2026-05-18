@@ -3475,6 +3475,14 @@ function renderQueue(){
         ${centerRows}
       </g>
     `;
+    const tileColorCorrections = `
+      <g aria-label="Korekce barev eventovych poli">
+        <path d="M 1011 291 L 1092 289 L 1122 340 L 1088 399 L 1022 361 L 978 348 Z" fill="#ffd400" stroke="rgba(255,255,255,0.86)" stroke-width="2" />
+        <text x="1059" y="342" fill="#080808" font-size="37" font-weight="1000" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="rgba(255,255,255,0.35)" stroke-width="2">7</text>
+        <path d="M 1090 331 L 1138 351 L 1139 445 L 1073 445 L 1050 389 Z" fill="#080808" stroke="rgba(255,255,255,0.86)" stroke-width="2" />
+        <text x="1105" y="389" fill="#ffffff" font-size="37" font-weight="1000" text-anchor="middle" dominant-baseline="central" paint-order="stroke" stroke="rgba(0,0,0,0.72)" stroke-width="3">8</text>
+      </g>
+    `;
 
     function renderInto(svg){
       if (!svg) return;
@@ -3483,6 +3491,7 @@ function renderQueue(){
       svg.classList.add("f1CircuitSvg");
       svg.innerHTML = `
         <image href="./pocitadlo.png" x="0" y="0" width="${boardW}" height="${boardH}" preserveAspectRatio="xMidYMid meet"></image>
+        ${tileColorCorrections}
         ${dateHighlight}
         ${centerBoard}
         <g>${hits}</g>
