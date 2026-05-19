@@ -1301,41 +1301,109 @@
         return ((team.total % size) + size) % size;
       }
 
+      function roundHistoryChronological(round){
+        const endHistory = Array.isArray(round?.endSnapshot?.history) ? round.endSnapshot.history : null;
+        const startHistory = Array.isArray(round?.startSnapshot?.history) ? round.startSnapshot.history : null;
+        if (!endHistory) return [];
+        const roundEventCount = startHistory ? Math.max(0, endHistory.length - startHistory.length) : endHistory.length;
+        return endHistory.slice(0, roundEventCount).reverse();
+      }
+
+      function collisionKey(c){
+        return [c?.ts || "", c?.a || "", c?.b || "", c?.tile ?? "", c?.winner || ""].join("|");
+      }
+
+      function placementText(place, delta, resultingTile, appliedDelta){
+        if (place == null) return "V tomto kole neměl uložené umístění v soutěži.";
+        const plannedMove = Number.isFinite(Number(delta)) ? Number(delta) : 0;
+        const move = Number.isFinite(Number(appliedDelta)) ? Number(appliedDelta) : plannedMove;
+        const capNote = move !== plannedMove ? ` (podle umístění ${plannedMove}, po efektu aplikováno ${move})` : "";
+        const result = resultingTile == null ? "" : `, na pole číslo ${fmtTile(resultingTile)}`;
+        return `V soutěži se umístil na ${place}. místě a posunul se o ${move} ${move === 1 ? "pole" : "polí"}${capNote}${result}.`;
+      }
+
+      function describeRoundEvents(round, team){
+        return (round.resolvedEvents || [])
+          .filter(ev => ev.teamId === team.id)
+          .map(ev => {
+            const effect = ev.effectText || ev.text || (ev.applied === false ? "bez dopadu" : "aplikováno");
+            const prefix = ev.applied === false ? "nebyla aplikována" : "byla aplikována";
+            return `Událost ${ev.title || "event"} ${prefix}; vliv: ${effect}.`;
+          });
+      }
+
       function describeRound(round){
-        const order = state.teams.slice().sort((a,b) => {
-          const sa = snapshotTeam(round, a.id, "startSnapshot");
-          const sb = snapshotTeam(round, b.id, "startSnapshot");
-          if (!sa && !sb) return 0;
+        const historyChron = roundHistoryChronological(round);
+        const collisionsChron = (round.collisions || []).slice().reverse();
+        const collisionOrder = new Map(collisionsChron.map((c, index) => [collisionKey(c), index]));
+        const startTeams = state.teams.map(team => ({
+          team,
+          start: snapshotTeam(round, team.id, "startSnapshot")
+        }));
+        const order = startTeams.slice().sort((a,b) => {
+          const sa = a.start;
+          const sb = b.start;
+          if (!sa && !sb) return (round.placements?.[b.team.id] || 0) - (round.placements?.[a.team.id] || 0);
           if (!sa) return 1;
           if (!sb) return -1;
+          if (sa.offTrack && sb.offTrack) return (round.placements?.[b.team.id] || 0) - (round.placements?.[a.team.id] || 0);
+          if (sa.offTrack) return 1;
+          if (sb.offTrack) return -1;
           return (sa.total || 0) - (sb.total || 0);
         });
-        return order.map((team, orderIdx) => {
-          const start = snapshotTeam(round, team.id, "startSnapshot");
-          const end = snapshotTeam(round, team.id, "endSnapshot");
-          const startTile = tileFromTeam(start);
-          const endTile = tileFromTeam(end);
-          const place = round.placements?.[team.id];
-          const delta = round.deltas?.[team.id];
-          const collisionBits = (round.collisions || [])
+
+        function teamRoundSteps(team){
+          const placementHistory = historyChron.find(h => h.teamId === team.id && String(h.source || "").startsWith("Umístění"));
+          const teamCollisionSteps = collisionsChron
             .filter(c => c.a === team.name || c.b === team.name || c.winner === team.name)
             .map(c => {
               const rival = c.a === team.name ? c.b : c.a;
               const won = c.winner === team.name;
-              return `na poli ${fmtTile(c.tile)} se potkal s ${code(rival)} a kolizi ${won ? "vyhral" : "prohral"}`;
+              const winnerHistory = historyChron.find(h =>
+                h.source === "kolize" &&
+                h.collision &&
+                h.collision.a === c.a &&
+                h.collision.b === c.b &&
+                h.collision.tile === c.tile &&
+                h.collision.winner === c.winner
+              );
+              const resultTile = won ? (winnerHistory?.tile ?? null) : c.tile;
+              return {
+                ts: c.ts || "",
+                order: 20 + (collisionOrder.get(collisionKey(c)) || 0),
+                text: won
+                  ? `Na poli číslo ${fmtTile(c.tile)} se nacházel tým ${code(rival)}. Po vyhodnocení kolize ${code(team)} vyhrál a posunul se o 1 pole${resultTile == null ? "" : ` na pole číslo ${fmtTile(resultTile)}`}.`
+                  : `Na poli číslo ${fmtTile(c.tile)} se nacházel tým ${code(rival)}. Po vyhodnocení kolize ${code(team)} prohrál a zůstal na poli číslo ${fmtTile(resultTile)}; ${code(rival)} se posunul o 1 pole.`
+              };
             });
-          const eventBits = (round.resolvedEvents || [])
-            .filter(ev => ev.teamId === team.id)
-            .map(ev => `${escapeHtml(ev.title || "event")}: ${escapeHtml(ev.effectText || ev.text || (ev.applied === false ? "neaplikovano" : "aplikovano"))}`);
+          const placementStep = placementHistory ? [{
+            ts: placementHistory.ts || "",
+            order: 10,
+            text: placementText(round.placements?.[team.id], round.deltas?.[team.id], placementHistory.tile, placementHistory.deltaApplied)
+          }] : [];
+          return placementStep.concat(teamCollisionSteps).sort((a,b) => {
+            const byTime = String(a.ts).localeCompare(String(b.ts));
+            return byTime || (a.order - b.order);
+          }).map(step => step.text);
+        }
+
+        return order.map(({ team, start }, orderIdx) => {
+          const end = snapshotTeam(round, team.id, "endSnapshot");
+          const startTile = tileFromTeam(start);
+          const endTile = tileFromTeam(end);
+          const steps = teamRoundSteps(team);
+          if (!steps.length) {
+            steps.push(placementText(round.placements?.[team.id], round.deltas?.[team.id], null));
+          }
+          const eventBits = describeRoundEvents(round, team);
           const parts = [
-            `${code(team)} startoval z pole ${startTile == null ? "mimo trat" : fmtTile(startTile)}.`,
-            orderIdx === 0 ? "Protoze byl posledni, zahajil postup jako prvni." : `Do postupu sel jako ${orderIdx + 1}. tym od konce.`,
-            place ? `Umistil se na ${place}. miste, posunul se o ${delta > 0 ? "+" : ""}${delta} pole.` : "V tomto kole nema ulozene umisteni.",
-            endTile == null ? "Po vyhodnoceni skoncil mimo trat." : `Po vyhodnoceni skoncil na poli ${fmtTile(endTile)}.`
+            `${code(team)} startoval ${startTile == null ? "mimo trať" : `z pole číslo ${fmtTile(startTile)}`}.`,
+            orderIdx === 0 ? "Protože byl na začátku kola poslední, zahájil postup v tomto kole jako první." : `Do postupu šel jako ${orderIdx + 1}. tým od konce.`,
+            ...steps,
+            endTile == null ? "Po vyhodnocení skončil mimo trať." : `Po vyhodnocení kola skončil na poli číslo ${fmtTile(endTile)}.`
           ];
-          if (collisionBits.length) parts.push(`Kolize: ${collisionBits.join("; ")}.`);
-          if (eventBits.length) parts.push(`Eventy: ${eventBits.join("; ")}.`);
-          return `<div class="enhPreviewItem raceNarrativeLine">${parts.join(" ")}</div>`;
+          if (eventBits.length) parts.push(...eventBits);
+          return `<div class="enhPreviewItem raceNarrativeLine">${escapeHtml(parts.join(" "))}</div>`;
         }).join("");
       }
 
@@ -1398,6 +1466,25 @@
         </div>
       `;
 
+      const historyPanel = `
+        <div class="kidsPublicCard kidsF1Card raceHistoryPanel">
+          <div class="enhHistoryHead">
+            <div>
+              <div class="enhMuted">Historie</div>
+              <div class="big" style="font-size:18px;">Poslední 2 kola</div>
+            </div>
+          </div>
+          <div class="raceRoundNarrative">
+            ${recentRounds.length ? recentRounds.map(round => `
+              <div class="enhPreviewItem">
+                <strong>Kolo ${round.roundNo}: ${escapeHtml(round.activityName || "bez názvu")}</strong>
+                <div class="raceRoundNarrative">${describeRound(round)}</div>
+              </div>
+            `).join("") : `<div class="enhPreviewItem">Zatím nejsou potvrzena žádná kola.</div>`}
+          </div>
+        </div>
+      `;
+
       const detailPanels = canWriteShared ? `
         <div class="raceBelowPanel" style="margin-top:14px;">
           <div class="kidsPublicCard kidsF1Card raceStatusPanel">
@@ -1418,24 +1505,13 @@
               `).join("")}
             </div>
           </div>
-          <div class="kidsPublicCard kidsF1Card">
-            <div class="enhHistoryHead">
-              <div>
-                <div class="enhMuted">Historie</div>
-                <div class="big" style="font-size:18px;">Poslední 2 kola</div>
-              </div>
-            </div>
-            <div class="raceRoundNarrative">
-              ${recentRounds.length ? recentRounds.map(round => `
-                <div class="enhPreviewItem">
-                  <strong>Kolo ${round.roundNo}: ${escapeHtml(round.activityName || "bez nazvu")}</strong>
-                  <div class="raceRoundNarrative">${describeRound(round)}</div>
-                </div>
-              `).join("") : `<div class="enhPreviewItem">Zatím nejsou potvrzena žádná kola.</div>`}
-            </div>
-          </div>
+          ${historyPanel}
         </div>
-      ` : "";
+      ` : `
+        <div class="raceBelowPanel racePublicHistory" style="margin-top:14px;">
+          ${historyPanel}
+        </div>
+      `;
 
       mount.innerHTML = `
         <div class="raceControlTop ${canWriteShared ? "" : "is-public"}">
