@@ -1313,22 +1313,27 @@
         return [c?.ts || "", c?.a || "", c?.b || "", c?.tile ?? "", c?.winner || ""].join("|");
       }
 
+      function fieldChip(value){
+        return `<span class="raceHistoryChip">${escapeHtml(value)}</span>`;
+      }
+
       function placementText(place, delta, resultingTile, appliedDelta){
-        if (place == null) return "V tomto kole neměl uložené umístění v soutěži.";
+        if (place == null) return "v tomto kole neměl uložené umístění v soutěži";
         const plannedMove = Number.isFinite(Number(delta)) ? Number(delta) : 0;
         const move = Number.isFinite(Number(appliedDelta)) ? Number(appliedDelta) : plannedMove;
         const capNote = move !== plannedMove ? ` (podle umístění ${plannedMove}, po efektu aplikováno ${move})` : "";
-        const result = resultingTile == null ? "" : `, na pole číslo ${fmtTile(resultingTile)}`;
-        return `V soutěži se umístil na ${place}. místě a posunul se o ${move} ${move === 1 ? "pole" : "polí"}${capNote}${result}.`;
+        const result = resultingTile == null ? "" : ` → posun na ${fieldChip(fmtTile(resultingTile))}`;
+        return `umístil se na ${place}. místě a dostal posun ${fieldChip(`+${move}`)}${capNote}${result}`;
       }
 
       function describeRoundEvents(round, team){
         return (round.resolvedEvents || [])
           .filter(ev => ev.teamId === team.id)
           .map(ev => {
-            const effect = ev.effectText || ev.text || (ev.applied === false ? "bez dopadu" : "aplikováno");
+            const title = escapeHtml(ev.title || "event");
+            const effect = escapeHtml(ev.effectText || ev.text || (ev.applied === false ? "bez dopadu" : "aplikováno"));
             const prefix = ev.applied === false ? "nebyla aplikována" : "byla aplikována";
-            return `Událost ${ev.title || "event"} ${prefix}; vliv: ${effect}.`;
+            return `událost ${title} ${prefix}; vliv: ${effect}`;
           });
       }
 
@@ -1372,8 +1377,8 @@
                 ts: c.ts || "",
                 order: 20 + (collisionOrder.get(collisionKey(c)) || 0),
                 text: won
-                  ? `Na poli číslo ${fmtTile(c.tile)} se nacházel tým ${code(rival)}. Po vyhodnocení kolize ${code(team)} vyhrál a posunul se o 1 pole${resultTile == null ? "" : ` na pole číslo ${fmtTile(resultTile)}`}.`
-                  : `Na poli číslo ${fmtTile(c.tile)} se nacházel tým ${code(rival)}. Po vyhodnocení kolize ${code(team)} prohrál a zůstal na poli číslo ${fmtTile(resultTile)}; ${code(rival)} se posunul o 1 pole.`
+                  ? `${code(team)} vyhrál nad ${code(rival)} na poli ${fieldChip(fmtTile(c.tile))}${resultTile == null ? "" : ` → posun na ${fieldChip(fmtTile(resultTile))}`}`
+                  : `${code(team)} prohrál kolizi s ${code(rival)} na poli ${fieldChip(fmtTile(c.tile))} a zůstal na poli ${fieldChip(fmtTile(resultTile))}`
               };
             });
           const placementStep = placementHistory ? [{
@@ -1396,14 +1401,25 @@
             steps.push(placementText(round.placements?.[team.id], round.deltas?.[team.id], null));
           }
           const eventBits = describeRoundEvents(round, team);
-          const parts = [
-            `${code(team)} startoval ${startTile == null ? "mimo trať" : `z pole číslo ${fmtTile(startTile)}`}.`,
-            orderIdx === 0 ? "Protože byl na začátku kola poslední, zahájil postup v tomto kole jako první." : `Do postupu šel jako ${orderIdx + 1}. tým od konce.`,
-            ...steps,
-            endTile == null ? "Po vyhodnocení skončil mimo trať." : `Po vyhodnocení kola skončil na poli číslo ${fmtTile(endTile)}.`
-          ];
-          if (eventBits.length) parts.push(...eventBits);
-          return `<div class="enhPreviewItem raceNarrativeLine">${escapeHtml(parts.join(" "))}</div>`;
+          const delta = Number.isFinite(Number(round.deltas?.[team.id])) ? Number(round.deltas?.[team.id]) : null;
+          const place = round.placements?.[team.id];
+          const intro = [
+            `${code(team)} startoval ${startTile == null ? "mimo trať" : `na poli ${fieldChip(fmtTile(startTile))}`}`,
+            place == null ? "neměl uložené umístění" : `jako ${place}. tým dostal základní posun ${fieldChip(delta == null ? "0" : `+${delta}`)}`,
+            orderIdx === 0 ? "protože byl poslední, vyjížděl jako první" : `vyjížděl jako ${orderIdx + 1}. tým od konce`
+          ].join(" a ") + ".";
+          const finalText = endTile == null
+            ? `${code(team)} po vyhodnocení kola skončil mimo trať`
+            : `${code(team)} po vyhodnocení kola skončil na poli ${fieldChip(fmtTile(endTile))}`;
+          const bullets = steps.concat(eventBits, [finalText]);
+          return `
+            <div class="enhPreviewItem raceNarrativeLine">
+              <div class="raceHistoryIntro">${intro}</div>
+              <ul class="raceHistoryBullets">
+                ${bullets.map(item => `<li>${item}</li>`).join("")}
+              </ul>
+            </div>
+          `;
         }).join("");
       }
 
