@@ -650,6 +650,11 @@ body.mode-kids .kidsLayout {
   overflow: hidden;
 }
 
+#teams,
+#kidsInputs {
+  display: none !important;
+}
+
 @media (max-width: 900px) {
   .enhSplit,
   .enhTwoCol,

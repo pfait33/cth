@@ -13,6 +13,8 @@ const DEFAULT_FIREBASE_CONFIG = {
   appId: "1:724444139351:web:6a477d1fde9796be057812"
 };
 
+const FIXED_RACE_ID = "klondike-2026-hlavni-zavod";
+
 let firebaseSdkPromise = null;
 let firebaseContext = null;
 let queuedJob = null;
@@ -120,9 +122,9 @@ function getState(){
 }
 
 function loadConfig(){
-  const defaults = {
+  const fixedConfig = {
     enabled: true,
-    raceId: "klondike-2026-hlavni-zavod",
+    raceId: FIXED_RACE_ID,
     deviceLabel: "",
     firebase: {
       ...DEFAULT_FIREBASE_CONFIG
@@ -131,31 +133,25 @@ function loadConfig(){
 
   try{
     const raw = localStorage.getItem(CLOUD_SYNC_STORAGE_KEY);
-    if (!raw) {
-      syncState.configured = !!defaults.enabled && hasFirebaseConfig(defaults.firebase) && !!String(defaults.raceId || "").trim();
-      return defaults;
-    }
-    const parsed = JSON.parse(raw);
-    const merged = {
-      ...defaults,
-      ...parsed,
-      firebase: sanitizeFirebaseConfig(parsed?.firebase || {})
-    };
-    syncState.configured = !!merged.enabled && hasFirebaseConfig(merged.firebase) && !!String(merged.raceId || "").trim();
-    return merged;
+    const parsed = raw ? JSON.parse(raw) : {};
+    fixedConfig.deviceLabel = String(parsed?.deviceLabel || "").trim();
+    syncState.configured = !!fixedConfig.enabled && hasFirebaseConfig(fixedConfig.firebase) && !!String(fixedConfig.raceId || "").trim();
+    return fixedConfig;
   } catch (error){
     console.warn("Cloud sync config load failed:", error);
-    syncState.configured = false;
-    return defaults;
+    syncState.configured = !!fixedConfig.enabled && hasFirebaseConfig(fixedConfig.firebase) && !!String(fixedConfig.raceId || "").trim();
+    return fixedConfig;
   }
 }
 
 function saveConfig(nextConfig){
   const normalized = {
-    enabled: !!nextConfig?.enabled,
-    raceId: String(nextConfig?.raceId || "klondike-2026-hlavni-zavod").trim(),
-    deviceLabel: String(nextConfig?.deviceLabel || "").trim(),
-    firebase: sanitizeFirebaseConfig(nextConfig?.firebase || {})
+    enabled: true,
+    raceId: FIXED_RACE_ID,
+    deviceLabel: String(nextConfig?.deviceLabel ?? syncConfig.deviceLabel ?? "").trim(),
+    firebase: {
+      ...DEFAULT_FIREBASE_CONFIG
+    }
   };
 
   Object.assign(syncConfig, normalized);
@@ -184,10 +180,12 @@ function saveConfig(nextConfig){
 
 function clearConfig(){
   saveConfig({
-    enabled: false,
-    raceId: "",
+    enabled: true,
+    raceId: FIXED_RACE_ID,
     deviceLabel: "",
-    firebase: {}
+    firebase: {
+      ...DEFAULT_FIREBASE_CONFIG
+    }
   });
 }
 

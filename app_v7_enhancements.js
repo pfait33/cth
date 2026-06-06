@@ -328,17 +328,6 @@
               <button class="btnOk" data-enh-action="save-settings">Ulozit nastaveni</button>
             </div>
           </div>
-          <div class="enhSettingRow">
-            <h3>Tymy</h3>
-            <div class="enhSettingsTeams">
-              ${state.teams.map(team => `
-                <div class="enhSettingsTeam">
-                  <input type="text" data-enh-team-name="${team.id}" value="${escapeHtml(team.name)}" />
-                  <input type="color" data-enh-team-color="${team.id}" value="${escapeHtml(team.color)}" />
-                </div>
-              `).join("")}
-            </div>
-          </div>
         </div>
       `;
     }
@@ -347,17 +336,6 @@
       const mount = document.getElementById("enhSettingsPanel");
       if (!mount) return;
       const placeMap = state.settings?.placeToDelta || {};
-      const cloud = window.__cthCloudSync?.getState?.() || {
-        label: "vypnuto",
-        deviceId: "",
-        config: {
-          enabled: false,
-          raceId: "",
-          deviceLabel: "",
-          firebase: {}
-        }
-      };
-      const firebaseConfigJson = JSON.stringify(cloud.config?.firebase || {}, null, 2);
       mount.innerHTML = `
         <div class="enhSettingsList">
           <div class="enhSettingRow">
@@ -409,17 +387,6 @@
               <label class="enhTag"><input id="enhCollisionRandom" type="checkbox" ${state.settings?.collisionRandom === false ? "" : "checked"} /> 60:40 kolize</label>
               <label class="enhTag"><input id="enhAnimationsEnabled" type="checkbox" ${state.settings?.animationsEnabled === false ? "" : "checked"} /> animace zapnute</label>
               <button class="btnOk" data-enh-action="save-settings">Ulozit nastaveni</button>
-            </div>
-          </div>
-          <div class="enhSettingRow">
-            <h3>Tymy</h3>
-            <div class="enhSettingsTeams">
-              ${state.teams.map(team => `
-                <div class="enhSettingsTeam">
-                  <input type="text" data-enh-team-name="${team.id}" value="${escapeHtml(team.name)}" />
-                  <input type="color" data-enh-team-color="${team.id}" value="${escapeHtml(team.color)}" />
-                </div>
-              `).join("")}
             </div>
           </div>
           <div class="enhSettingRow">
@@ -546,14 +513,6 @@
       const adminMount = document.getElementById("enhAdminPanels");
       if (!adminMount) return;
       adminMount.innerHTML = `
-        <section class="enhPanel">
-          <h3>Admin dashboard</h3>
-          <div id="enhDashboard"></div>
-        </section>
-        <section class="enhPanel">
-          <h3>Rychle zadani kola</h3>
-          <div id="enhBatchPanel"></div>
-        </section>
         <section class="enhPanel">
           <h3>Historie kol</h3>
           <div class="enhMuted">U kazdeho kola zustava jen bezpecny navrat na stav pred jeho zadanim. Kdyz se zapis povede spatne, vratite se pred vybrane kolo a zadate ho znovu.</div>
@@ -1544,13 +1503,72 @@
       }
     }
 
+    function renderSettings(state){
+      const mount = document.getElementById("enhSettingsPanel");
+      if (!mount) return;
+      const placeMap = state.settings?.placeToDelta || {};
+      mount.innerHTML = `
+        <div class="enhSettingsList">
+          <div class="enhSettingRow">
+            <h3>Nastaveni zavodu</h3>
+            <div class="enhMuted" style="margin-bottom:10px;">Zakladni herni parametry zustavaji pro admina dostupne, ale technicke nastaveni tymu a cloudu uz se na strance nezobrazuje.</div>
+            <div class="enhTwoCol">
+              <div>
+                <div class="enhMuted">Nazev velke ceny</div>
+                <input id="enhRaceName" type="text" value="${escapeHtml(state.settings?.raceName || "")}" />
+              </div>
+              <div>
+                <div class="enhMuted">Aktualni kolo</div>
+                <input id="enhRoundNumber" type="number" min="1" value="${state.round?.number || 1}" />
+              </div>
+              <div>
+                <div class="enhMuted">Pocet poli trati</div>
+                <input id="enhTrackSize" type="number" min="20" max="120" value="${state.settings?.trackSize || 40}" />
+              </div>
+              <div>
+                <div class="enhMuted">Event pole (csv)</div>
+                <input id="enhEventTiles" type="text" value="${escapeHtml((state.settings?.eventTiles || []).join(","))}" />
+              </div>
+              <div>
+                <div class="enhMuted">1. misto</div>
+                <input id="enhPlace1" type="number" value="${placeMap[1] ?? 5}" />
+              </div>
+              <div>
+                <div class="enhMuted">2. misto</div>
+                <input id="enhPlace2" type="number" value="${placeMap[2] ?? 4}" />
+              </div>
+              <div>
+                <div class="enhMuted">3. misto</div>
+                <input id="enhPlace3" type="number" value="${placeMap[3] ?? 3}" />
+              </div>
+              <div>
+                <div class="enhMuted">4. misto</div>
+                <input id="enhPlace4" type="number" value="${placeMap[4] ?? 2}" />
+              </div>
+              <div>
+                <div class="enhMuted">5. misto</div>
+                <input id="enhPlace5" type="number" value="${placeMap[5] ?? 1}" />
+              </div>
+              <div>
+                <div class="enhMuted">Rychlost animaci</div>
+                <input id="enhAnimSpeed" type="number" min="0.5" max="3" step="0.1" value="${state.settings?.animationSpeed || 1}" />
+              </div>
+            </div>
+            <div class="enhButtonRow">
+              <label class="enhTag"><input id="enhCollisionRandom" type="checkbox" ${state.settings?.collisionRandom === false ? "" : "checked"} /> 60:40 kolize</label>
+              <label class="enhTag"><input id="enhAnimationsEnabled" type="checkbox" ${state.settings?.animationsEnabled === false ? "" : "checked"} /> animace zapnute</label>
+              <button class="btnOk" data-enh-action="save-settings">Ulozit nastaveni</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     function refresh(){
       if (!ensureMounts()) return;
       renderShell();
       const state = getState();
       defaultDraftFromState(state);
-      renderDashboard(state);
-      renderBatch(state);
       renderHistory(state);
       renderEvents(state);
       renderSettings(state);
