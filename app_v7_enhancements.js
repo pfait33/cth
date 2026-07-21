@@ -2009,14 +2009,9 @@
       return;
     }
 
-    let attempts = 0;
     const timer = window.setInterval(function(){
-      attempts += 1;
       const cloud = window.__cthCloudSync?.getState?.();
-      if (!cloud?.canWrite) {
-        if (attempts >= 60) window.clearInterval(timer);
-        return;
-      }
+      if (!cloud?.canWrite) return;
 
       window.clearInterval(timer);
       app.setState(preset);
