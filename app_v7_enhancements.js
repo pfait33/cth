@@ -1995,5 +1995,37 @@
     ].join(",");
   }
 
+  async function applyRound6PresetFromUrl(){
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("apply_round6") !== "20260721") return;
+
+    let preset;
+    try {
+      const response = await fetch("./round6_clean_state.json?v=20260721", { cache:"no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      preset = await response.json();
+    } catch (error) {
+      console.error("Round 6 preset could not be loaded:", error);
+      return;
+    }
+
+    let attempts = 0;
+    const timer = window.setInterval(function(){
+      attempts += 1;
+      const cloud = window.__cthCloudSync?.getState?.();
+      if (!cloud?.canWrite) {
+        if (attempts >= 60) window.clearInterval(timer);
+        return;
+      }
+
+      window.clearInterval(timer);
+      app.setState(preset);
+      url.searchParams.delete("apply_round6");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+      app.showToast?.("Historie nastavena. Kolo 6 je bez aktivnich efektu.");
+    }, 250);
+  }
+
+  applyRound6PresetFromUrl();
   boot();
 })();
