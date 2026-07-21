@@ -150,6 +150,7 @@
         return pa - pb || a.name.localeCompare(b.name);
       });
       const preview = app.buildBatchRoundPreview(ui.draftPlacements);
+      const batchRunning = !!state.round?.batchProgress && state.round.batchProgress.nextIndex < state.round.batchProgress.order.length;
       mount.innerHTML = `
         <div class="enhSplit">
           <div>
@@ -159,7 +160,7 @@
                 <input id="enhActivityName" type="text" value="${escapeHtml(ui.draftActivityName)}" placeholder="Napriklad Diskgolf, Stavba trate..." />
               </div>
               <button class="btnSmall" data-enh-action="auto-rank">Vyplnit 1-5 dle seznamu</button>
-              <button class="btnOk" data-enh-action="apply-batch">Zadat cele kolo</button>
+              <button class="btnOk" data-enh-action="${batchRunning ? "advance-batch" : "apply-batch"}">${batchRunning ? "Ukazat dalsi tym" : "Zadat cele kolo"}</button>
             </div>
             <div class="enhMuted" style="margin:8px 0 10px;">Pretahni tymy pro rychle poradi, nebo rucne uprav misto. Stejne misto lze pouzit pro remizu.</div>
             <div class="enhTeamDraft" id="enhDraftList">
@@ -1242,6 +1243,20 @@
           .sort((a,b) => getTeamBrand(a).short.localeCompare(getTeamBrand(b).short))
       }));
       const preview = app.buildBatchRoundPreview(ui.draftPlacements);
+      const batchProgress = state.round?.batchProgress || null;
+      const batchRunning = !!batchProgress && batchProgress.nextIndex < batchProgress.order.length;
+      const lastBatchStep = batchProgress?.steps?.[batchProgress.steps.length - 1] || null;
+      const nextBatchItem = batchRunning ? batchProgress.order[batchProgress.nextIndex] : null;
+      const nextBatchTeam = nextBatchItem ? state.teams.find(team => team.id === nextBatchItem.teamId) : null;
+      const lastBatchTeam = lastBatchStep ? state.teams.find(team => team.id === lastBatchStep.teamId) : null;
+      const primaryAction = (state.round?.needsConfirm || state.round?.locked)
+        ? "close-round"
+        : (batchRunning ? "advance-batch" : "apply-kids-batch");
+      const primaryLabel = state.round?.locked
+        ? "Vyhodnotit eventy"
+        : (state.round?.needsConfirm
+          ? "Dokoncit rekapitulaci"
+          : (batchRunning ? "Ukazat dalsi tym" : "Potvrdit"));
 
       function code(teamOrId){
         const team = typeof teamOrId === "string" ? state.teams.find(t => t.id === teamOrId || t.name === teamOrId) : teamOrId;
@@ -1413,8 +1428,26 @@
               <div class="enhMuted">Zadani postupu</div>
               <div class="big" style="font-size:18px;">Drag and drop</div>
             </div>
-            <button class="btnOk" data-enh-action="${(state.round?.needsConfirm || state.round?.locked) ? "close-round" : "apply-kids-batch"}" ${canWriteShared ? "" : "disabled"}>${(state.round?.needsConfirm || state.round?.locked) ? (state.round?.needsConfirm ? "Dokoncit rekapitulaci" : "Vyhodnotit eventy") : "Potvrdit"}</button>
+            <button class="btnOk" data-enh-action="${primaryAction}" ${canWriteShared ? "" : "disabled"}>${primaryLabel}</button>
           </div>
+          ${batchProgress ? `
+            <div class="kidsMovementProgress" aria-live="polite">
+              <div class="kidsMovementHeader">
+                <div><div class="enhMuted">Prubeh pohybu</div><strong>${Math.min(batchProgress.nextIndex, batchProgress.order.length)} z ${batchProgress.order.length} tymu dojelo</strong></div>
+                <div class="kidsMovementSteps">${batchProgress.order.map((item, index) => `<span class="${index < batchProgress.nextIndex ? "is-done" : (index === batchProgress.nextIndex ? "is-next" : "")}">${index + 1}</span>`).join("")}</div>
+              </div>
+              ${lastBatchStep ? `
+                <div class="kidsMovementResult"><strong>${escapeHtml(code(lastBatchTeam || lastBatchStep.teamId))}</strong> dojela na pole <strong>${fmtTile(lastBatchStep.after?.tile)}</strong> <span class="enhMuted">&bull; ${lastBatchStep.place}. misto v aktivite</span></div>
+                ${(lastBatchStep.collisions?.length || lastBatchStep.collision) ? `
+                  <div class="kidsMovementCollision">
+                    <strong>${lastBatchStep.collisions?.length > 1 ? `Retezec ${lastBatchStep.collisions.length} kolizi` : "Kolize"}</strong>
+                    ${(lastBatchStep.collisions?.length ? lastBatchStep.collisions : [lastBatchStep.collision]).map((collision, index) => `<div>${index + 1}. pole ${fmtTile(collision.tile)}: ${escapeHtml(code(collision.a))} &times; ${escapeHtml(code(collision.b))} &rarr; +1 pro ${escapeHtml(code(collision.winner))}</div>`).join("")}
+                  </div>
+                ` : `<div class="enhMuted">Bez kolize pri tomto dojezdu.</div>`}
+              ` : ""}
+              ${batchRunning ? `<div class="kidsMovementNext">Po kliknuti vyjede <strong>${escapeHtml(code(nextBatchTeam || nextBatchItem.teamId))}</strong> podle aktualniho poradi.</div>` : `<div class="kidsMovementNext"><strong>Vsechny pohyby jsou hotove.</strong> Eventy byly urceny z konecnych pozic.</div>`}
+            </div>
+          ` : ""}
           <div class="kidsDraftBoard">
             ${groupedDraftTeams.map(group => `
               <div class="kidsDraftSlot" data-kids-slot="${group.place}">
@@ -1772,7 +1805,13 @@
         if (action === "apply-kids-batch") {
           if (!requireSharedWriteAccess()) return;
           const validation = app.applyBatchRound(ui.draftPlacements, ui.draftActivityName);
-          if (validation?.ok) app.showToast("Poradi zadano. Dokonci potvrzeni kola.");
+          if (validation?.ok) app.showToast("Poradi ulozeno. Posledni tym prave dojel.");
+        }
+        if (action === "advance-batch") {
+          if (!requireSharedWriteAccess()) return;
+          const result = app.advanceBatchRound?.();
+          if (result?.ok && result.complete) app.showToast("Vsechny tymy dojely. Eventy jsou pripravene z konecnych pozic.");
+          else if (result?.ok) app.showToast("Dalsi tym dojel. Poradi pro dalsi pohyb bylo prepocitano.");
         }
         if (action === "save-settings") {
           if (!requireSharedWriteAccess()) return;

@@ -576,7 +576,8 @@
       startSnapshot: null,
       eventQueue: [],      // po uzavření kola: {teamId, ev, round, tile}
       eventDeltaApplied: {}, // teamId -> sum event delta v tomto kole (pro limit top týmu)
-      resolvedEvents: []     // {teamId, title, applied, effectText}
+      resolvedEvents: [],    // {teamId, title, applied, effectText}
+      batchProgress: null
     },
     pending: null
   });
@@ -1650,42 +1651,37 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
 
-  // ---------- Kolize (unikátní políčko) ----------
+  // ---------- Kolize po dojezdu ----------
   function ensureUniqueTiles(triggerOvertakerId){
+    const collisions = [];
+    let activeTeamId = triggerOvertakerId;
     let guard = 500;
 
     while (guard-- > 0){
-      const onTrack = state.teams.filter(t => !t.offTrack);
-      const groups = new Map();
-
-      for (const t of onTrack){
-        const tile = teamLapTile(t).tile;
-        if (!groups.has(tile)) groups.set(tile, []);
-        groups.get(tile).push(t);
-      }
-
-      let collisionTile = null, colliders = null;
-      for (const [tile, arr] of groups.entries()){
-        if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
-      }
-      if (!colliders) return;
-
-      let overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.sort((a,b)=>b.total-a.total)[0];
-      let defender = colliders.filter(t => t.id !== overtaker.id).sort((a,b)=>b.total-a.total)[0];
+      const overtaker = state.teams.find(t => t.id === activeTeamId && !t.offTrack);
+      if (!overtaker) break;
+      const collisionTile = teamLapTile(overtaker).tile;
+      const defender = state.teams
+        .filter(t => t.id !== overtaker.id && !t.offTrack && teamLapTile(t).tile === collisionTile)
+        .sort((a,b) => b.total - a.total || a.id.localeCompare(b.id))[0];
+      if (!defender) break;
 
       const winner = collisionsUseRandom()
         ? ((Math.random() < 0.6) ? overtaker : defender)
         : overtaker;
       const r = applyForcedDelta(winner, +1);
-      state.round.collisionLog = state.round.collisionLog || [];
-      state.round.collisionLog.unshift({
+      const collision = {
         ts: nowIso(),
         a: overtaker.name,
         b: defender.name,
         tile: collisionTile,
         winner: winner.name,
+        winnerId: winner.id,
         mode: collisionsUseRandom() ? "60:40" : "deterministic"
-      });
+      };
+      collisions.push(collision);
+      state.round.collisionLog = state.round.collisionLog || [];
+      state.round.collisionLog.unshift(collision);
 
       state.history.unshift({
         ts: nowIso(),
@@ -1701,13 +1697,12 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
         collision: { a:overtaker.name, b:defender.name, tile: collisionTile, winner: winner.name }
       });
 
-      // Kolize → přehraj dětskou animaci (fronta; hraje se postupně)
       enqueueCollisionAnim(overtaker, defender, winner);
-
-      triggerOvertakerId = winner.id;
+      activeTeamId = winner.id;
     }
 
-    alert("Varování: nepodařilo se vyřešit kolize v limitu. Použij 'Zpět'.");
+    if (guard <= 0) alert("Varování: řetězec kolizí překročil bezpečnostní limit. Použij 'Zpět'.");
+    return collisions;
   }
 
   // ---------- Startovní nasazení ----------
@@ -1807,7 +1802,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     else if (mode === "event") r = applyEventDelta(team, delta);
     else r = applyForcedDelta(team, delta);
 
-    ensureUniqueTiles(teamId);
+    const collisions = ensureUniqueTiles(teamId);
 
     const { lap, tile } = teamLapTile(team);
 
@@ -1832,6 +1827,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     }
 
     if (!batchRoundApplying) persist(false);
+    return { ...r, lap, tile, collision:collisions[0] || null, collisions };
   }
 
   function applyPlacement(teamId, place){
@@ -1876,6 +1872,19 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       .sort((a,b) => (a.rankFromBack - b.rankFromBack) || (a.place - b.place) || a.teamId.localeCompare(b.teamId));
   }
 
+  function refreshBatchExecutionOrder(progress){
+    if (!progress) return;
+    const placements = progress.placements || Object.fromEntries((progress.order || []).map(item => [item.teamId, item.place]));
+    progress.placements = placements;
+    const completed = (progress.steps || []).map(step => ({ teamId:step.teamId, place:step.place }));
+    const completedIds = new Set(completed.map(item => item.teamId));
+    const remaining = getBatchExecutionOrder(placements)
+      .filter(item => !completedIds.has(item.teamId))
+      .map(item => ({ teamId:item.teamId, place:item.place }));
+    progress.order = [...completed, ...remaining];
+    progress.nextIndex = completed.length;
+  }
+
   function validateBatchPlacements(placements){
     const issues = [];
     for (const t of state.teams){
@@ -1893,7 +1902,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
     const trackSize = getTrackSize();
     const eventTiles = getEventTilesSet();
     const collisions = [];
-    const order = getBatchExecutionOrder(placements);
+    const order = [];
 
     function findTeam(teamId){ return teams.find(t => t.id === teamId); }
     function lapTile(team){
@@ -1917,21 +1926,16 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       return next;
     }
     function resolvePreviewCollisions(triggerOvertakerId){
-      let guard = 100;
+      let activeTeamId = triggerOvertakerId;
+      let guard = 500;
       while (guard-- > 0){
-        const groups = new Map();
-        teams.filter(t => !t.offTrack).forEach(t => {
-          const tile = lapTile(t).tile;
-          if (!groups.has(tile)) groups.set(tile, []);
-          groups.get(tile).push(t);
-        });
-        let collisionTile = null, colliders = null;
-        for (const [tile, arr] of groups.entries()){
-        if (arr.length > 1){ collisionTile = tile; colliders = arr; break; }
-        }
-        if (!colliders) return;
-        const overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders.slice().sort((a,b)=>b.total-a.total)[0];
-        const defender = colliders.filter(t => t.id !== overtaker.id).slice().sort((a,b)=>b.total-a.total)[0];
+        const overtaker = findTeam(activeTeamId);
+        if (!overtaker || overtaker.offTrack) return;
+        const collisionTile = lapTile(overtaker).tile;
+        const defender = teams
+          .filter(t => t.id !== overtaker.id && !t.offTrack && lapTile(t).tile === collisionTile)
+          .sort((a,b) => b.total - a.total || a.id.localeCompare(b.id))[0];
+        if (!defender) return;
         overtaker.total = Math.max(0, overtaker.total + 1);
         collisions.push({
           tile: displayTile(collisionTile, trackSize),
@@ -1940,13 +1944,19 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
           previewWinner: overtaker.name,
           resolution: collisionsUseRandom() ? "60:40 ve prospech predjizdejiciho" : "deterministicky postup predjizdejiciho"
         });
-        triggerOvertakerId = overtaker.id;
+        activeTeamId = overtaker.id;
       }
     }
 
-    order.forEach(item => {
-      const team = findTeam(item.teamId);
-      if (!team) return;
+    const remainingTeamIds = new Set(teams.map(team => team.id));
+    while (remainingTeamIds.size){
+      const team = teams
+        .filter(candidate => remainingTeamIds.has(candidate.id))
+        .sort((a,b) => a.total - b.total || a.id.localeCompare(b.id))[0];
+      if (!team) break;
+      const item = { teamId:team.id, place:parseInt(placements[team.id], 10) };
+      order.push(item);
+      remainingTeamIds.delete(team.id);
       if (state.phase === "seed"){
         team.offTrack = false;
         team.total = START_PLACE_TO_TILE(item.place);
@@ -1954,7 +1964,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
         applyPlacementDeltaSim(team, getPlaceDelta(item.place));
       }
       resolvePreviewCollisions(item.teamId);
-    });
+    }
 
     const standings = teams
       .filter(t => !t.offTrack)
@@ -1973,7 +1983,7 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
   }
 
   function applyBatchRound(placements, activityName){
-    if (state.round.locked || state.round.needsConfirm){
+    if (state.round.locked || state.round.needsConfirm || state.round.batchProgress){
       showToast("Kolo je uzamčené. Nejdřív dokonči rekapitulaci nebo eventy.");
       return { ok:false, locked:true, issues:["Kolo je uzamčené. Nejdřív dokonči rekapitulaci nebo eventy."] };
     }
@@ -1987,19 +1997,68 @@ document.getElementById("btnCopyReport").onclick = () => copyReport();
       state.round.activityName = String(activityName || "").trim();
       if (elActivityName) elActivityName.value = state.round.activityName;
     }
+    ensureRoundStartSnapshot();
+    undoStack.push(deepClone(state));
+    state.round.batchProgress = {
+      placements: Object.fromEntries(state.teams.map(team => [team.id, parseInt(placements[team.id], 10)])),
+      order: getBatchExecutionOrder(placements).map(item => ({ teamId:item.teamId, place:item.place })),
+      nextIndex: 0,
+      steps: [],
+      startedAt: nowIso()
+    };
+    dirty = true;
+    return advanceBatchRound();
+  }
+
+  function advanceBatchRound(){
+    if (!requireSharedWriteAccess()) return { ok:false, issues:["Zadávání výsledků je dostupné jen po přihlášení admina."] };
+    const progress = state.round.batchProgress;
+    if (!progress || !Array.isArray(progress.order)) return { ok:false, issues:["Není připravené žádné pořadí."] };
+    refreshBatchExecutionOrder(progress);
+    if (progress.nextIndex >= progress.order.length) return { ok:true, complete:true };
+
+    const item = progress.order[progress.nextIndex];
+    const team = state.teams.find(t => t.id === item.teamId);
+    if (!team) return { ok:false, issues:["Tým ve frontě nebyl nalezen."] };
+    const before = { total:team.total, offTrack:team.offTrack, ...teamLapTile(team) };
+    const collisionCount = state.round.collisionLog?.length || 0;
+
     batchRoundApplying = true;
     try{
-      getBatchExecutionOrder(placements).forEach(item => applyPlacement(item.teamId, item.place));
+      if (state.phase === "seed") applyPlacement(item.teamId, item.place);
+      else moveTeamInternal(item.teamId, getPlaceDelta(item.place), {
+        source:`Umístění ${item.place}. místo`,
+        mode:"placement",
+        countAsRoundMove:true,
+        place:item.place
+      });
     } finally {
       batchRoundApplying = false;
     }
-    if (state.round.needsConfirm){
-      persist(true, { localOnly: true });
-      openRoundRecapModal();
-    } else {
-      persist(true);
-    }
-    return { ok:true };
+
+    const after = { total:team.total, offTrack:team.offTrack, ...teamLapTile(team) };
+    const collisionIncrease = Math.max(0, (state.round.collisionLog?.length || 0) - collisionCount);
+    const collisions = collisionIncrease
+      ? deepClone(state.round.collisionLog.slice(0, collisionIncrease).reverse())
+      : [];
+    progress.steps.push({
+      teamId:item.teamId,
+      place:item.place,
+      before,
+      after,
+      collision:collisions[0] || null,
+      collisions,
+      completedAt:nowIso()
+    });
+    refreshBatchExecutionOrder(progress);
+    dirty = true;
+    persist(true, { localOnly:true });
+    render();
+    return {
+      ok:true,
+      complete:progress.nextIndex >= progress.order.length,
+      step:deepClone(progress.steps[progress.steps.length - 1])
+    };
   }
 
   function buildEventQueueForRound(){
@@ -2570,6 +2629,7 @@ function buildPreviewCTHReportText(){
     state.round.eventQueue = [];
     state.round.eventDeltaApplied = {};
     state.round.resolvedEvents = [];
+    state.round.batchProgress = null;
     state.round.activityName = "";
     if (elActivityName) elActivityName.value = "";
     if (!keepNumber) state.round.number = 1;
@@ -2663,6 +2723,11 @@ function buildPreviewCTHReportText(){
     out.round.eventQueue = out.round.eventQueue || [];
     out.round.eventDeltaApplied = out.round.eventDeltaApplied || {};
     out.round.resolvedEvents = out.round.resolvedEvents || [];
+    if (!out.round.batchProgress || !Array.isArray(out.round.batchProgress.order)) out.round.batchProgress = null;
+    else {
+      out.round.batchProgress.nextIndex = Math.max(0, Math.min(out.round.batchProgress.order.length, parseInt(out.round.batchProgress.nextIndex, 10) || 0));
+      out.round.batchProgress.steps = Array.isArray(out.round.batchProgress.steps) ? out.round.batchProgress.steps : [];
+    }
     if (out.round.needsConfirm === undefined) out.round.needsConfirm = false;
     if (out.round.locked === undefined) out.round.locked = false;
 
@@ -2712,6 +2777,7 @@ function buildPreviewCTHReportText(){
     return !!(
       moved ||
       placements ||
+      round.batchProgress ||
       round.needsConfirm ||
       round.locked ||
       state?.pending?.type === "event"
@@ -3632,6 +3698,7 @@ function renderQueue(){
     showToast,
     applyPlacement,
     applyBatchRound,
+    advanceBatchRound,
     buildBatchRoundPreview,
     validateBatchPlacements,
     getBatchExecutionOrder,
@@ -3668,12 +3735,6 @@ function renderQueue(){
     applyUIMode();
     elManualTeam.innerHTML = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
     btnManual.onclick = manualMove;
-
-    // sanity: pokud už jsou na trati, vynutit unikátní stav
-    if (state.teams.some(t => !t.offTrack)){
-      const any = state.teams.find(t => !t.offTrack);
-      ensureUniqueTiles(any?.id || state.teams[0].id);
-    }
 
     render();
   }

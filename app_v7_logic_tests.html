@@ -83,10 +83,11 @@
       return { ok: issues.length === 0, issues };
     }
     function getBatchExecutionOrder(state, placements){
+      const rankFromBack = new Map(state.teams.slice().sort((a,b) => a.total - b.total).map((team, index) => [team.id, index]));
       return Object.entries(placements)
-        .map(([teamId, place]) => ({ teamId, place: parseInt(place, 10), total: state.teams.find(t => t.id === teamId)?.total || 0 }))
+        .map(([teamId, place]) => ({ teamId, place: parseInt(place, 10), total: state.teams.find(t => t.id === teamId)?.total || 0, rankFromBack:rankFromBack.get(teamId) }))
         .filter(item => [1,2,3,4,5].includes(item.place))
-        .sort((a,b) => (a.place - b.place) || (b.total - a.total) || a.teamId.localeCompare(b.teamId));
+        .sort((a,b) => (a.rankFromBack - b.rankFromBack) || (a.place - b.place) || a.teamId.localeCompare(b.teamId));
     }
     function buildBatchRoundPreview(state, placements){
       const validation = validateBatchPlacements(state, placements);
@@ -97,25 +98,19 @@
         return { lap: Math.floor(team.total / TRACK_SIZE), tile: ((team.total % TRACK_SIZE) + TRACK_SIZE) % TRACK_SIZE };
       }
       function resolveCollision(triggerOvertakerId){
+        let activeTeamId = triggerOvertakerId;
         let guard = 50;
         while (guard-- > 0) {
-          const groups = new Map();
-          teams.forEach(t => {
-            const tile = lapTile(t).tile;
-            if (!groups.has(tile)) groups.set(tile, []);
-            groups.get(tile).push(t);
-          });
-          let collisionTile = null;
-          let colliders = null;
-          for (const [tile, arr] of groups.entries()) {
-            if (arr.length > 1) { collisionTile = tile; colliders = arr; break; }
-          }
-          if (!colliders) return;
-          const overtaker = colliders.find(t => t.id === triggerOvertakerId) || colliders[0];
-          const defender = colliders.find(t => t.id !== overtaker.id);
+          const overtaker = teams.find(t => t.id === activeTeamId && !t.offTrack);
+          if (!overtaker) return;
+          const collisionTile = lapTile(overtaker).tile;
+          const defender = teams
+            .filter(t => t.id !== overtaker.id && !t.offTrack && lapTile(t).tile === collisionTile)
+            .sort((a,b) => b.total - a.total || a.id.localeCompare(b.id))[0];
+          if (!defender) return;
           overtaker.total += 1;
           collisions.push({ tile: collisionTile, a:overtaker.name, b:defender.name, previewWinner:overtaker.name });
-          triggerOvertakerId = overtaker.id;
+          activeTeamId = overtaker.id;
         }
       }
       getBatchExecutionOrder(state, placements).forEach(item => {
@@ -141,10 +136,20 @@
     const preview = buildBatchRoundPreview(SAMPLE_STATE, placements);
     addResult("preview succeeds for complete round", preview.ok === true, `rows=${preview.standings.length}`);
     addResult("preview keeps 5 standings rows", preview.standings.length === 5, `rows=${preview.standings.length}`);
+    const executionOrder = getBatchExecutionOrder(SAMPLE_STATE, placements);
+    addResult("movement starts with globally last team", executionOrder[0].teamId === "wil" && executionOrder[4].teamId === "mer", executionOrder.map(item => item.teamId).join("->"));
 
     const tiePreview = buildBatchRoundPreview(SAMPLE_STATE, { mer:1, mcl:1, ast:3, fer:4, wil:5 });
     addResult("preview accepts tied placement values", tiePreview.ok === true, `collisions=${tiePreview.collisions.length}`);
     addResult("event hit list is returned", Array.isArray(preview.eventTiles), `hits=${preview.eventTiles.length}`);
+
+    const chainState = deepClone(SAMPLE_STATE);
+    chainState.teams.find(t => t.id === "wil").total = 5;
+    chainState.teams.find(t => t.id === "fer").total = 6;
+    chainState.teams.find(t => t.id === "ast").total = 7;
+    const chainPreview = buildBatchRoundPreview(chainState, { mer:5, mcl:5, ast:5, fer:5, wil:5 });
+    const alpineCollisions = chainPreview.collisions.filter(c => c.a === "Alpine");
+    addResult("one arrival resolves a linked collision chain", alpineCollisions.length >= 2, `Alpine collisions=${alpineCollisions.length}`);
 
     const firstLeader = getBucketProfileForRank(1, 1);
     const firstLast = getBucketProfileForRank(1, 5);

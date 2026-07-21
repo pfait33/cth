@@ -627,6 +627,70 @@
   font-size: 12px;
 }
 
+.kidsMovementProgress {
+  display: grid;
+  gap: 9px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid rgba(99, 212, 146, 0.42);
+  border-radius: 8px;
+  background: rgba(16, 35, 29, 0.78);
+}
+
+.kidsMovementHeader,
+.kidsMovementSteps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.kidsMovementSteps span {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.kidsMovementSteps span.is-done {
+  color: #07150e;
+  border-color: #63d492;
+  background: #63d492;
+}
+
+.kidsMovementSteps span.is-next {
+  color: #fff;
+  border-color: #f2c14e;
+  box-shadow: 0 0 0 2px rgba(242,193,78,0.16);
+}
+
+.kidsMovementResult { font-size: 16px; }
+
+.kidsMovementCollision {
+  padding-left: 10px;
+  border-left: 3px solid #f2c14e;
+  color: #fff3c9;
+  font-size: 13px;
+}
+
+.kidsMovementNext {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+@media (max-width: 600px) {
+  .kidsMovementHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .kidsMovementSteps { width: 100%; }
+}
+
 .enhCompactList {
   margin: 0;
   padding-left: 18px;
