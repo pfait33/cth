@@ -1264,6 +1264,22 @@
         return getTeamBrand(team).short;
       }
 
+      function currentRoundModifiers(team){
+        const modifiers = [];
+        const deferred = Number(team?.mod?.deferred || 0);
+        const capNext = team?.mod?.capNext;
+        if (deferred > 0) modifiers.push({ tone:"boost", text:`BONUS +${deferred}` });
+        if (deferred < 0) modifiers.push({ tone:"limit", text:`OMEZENI ${deferred}` });
+        if (capNext != null) modifiers.push({ tone:"limit", text:`MAX +${Number(capNext)}` });
+        return modifiers;
+      }
+
+      function modifierBadges(team){
+        return currentRoundModifiers(team)
+          .map(modifier => `<span class="kidsTeamModifier is-${modifier.tone}">${escapeHtml(modifier.text)}</span>`)
+          .join("");
+      }
+
       function snapshotTeam(round, teamId, which){
         const snap = round?.[which];
         return snap?.teams?.find(t => t.id === teamId) || null;
@@ -1460,7 +1476,10 @@
                     <div class="kidsDraftTeam ${ui.selectedKidsTeamId === team.id ? "is-selected" : ""}" draggable="${canWriteShared && !touchMode ? "true" : "false"}" data-kids-team="${team.id}" style="--team-accent:${getTeamBrand(team).accent}; --team-accent-rgb:${hexToRgbString(getTeamBrand(team).accent)};">
                       <div class="kidsTeamLead">
                         <span class="kidsTeamLogo" style="--logo-accent:${getTeamBrand(team).accent};">${escapeHtml(getTeamBrand(team).mark)}</span>
-                        <div class="kidsTeamNameRow"><span class="kidsTeamWordmark">${escapeHtml(code(team))}</span></div>
+                        <div class="kidsTeamNameRow">
+                          <span class="kidsTeamWordmark">${escapeHtml(code(team))}</span>
+                          ${modifierBadges(team)}
+                        </div>
                       </div>
                     </div>
                   `).join("") : `<div class="kidsDraftEmpty">Sem pretahni tym</div>`}

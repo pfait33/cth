@@ -577,6 +577,30 @@
   color: rgba(255,255,255,0.75);
 }
 
+.kidsTeamModifier {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.kidsTeamModifier.is-boost {
+  color: #8df0b5;
+  background: rgba(42, 145, 86, 0.18);
+}
+
+.kidsTeamModifier.is-limit {
+  color: #ffd37a;
+  background: rgba(170, 106, 22, 0.2);
+}
+
 .kidsTeamNameRow strong {
   font-size: 16px;
   line-height: 1.1;
