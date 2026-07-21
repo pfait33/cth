@@ -214,7 +214,9 @@
                   <div class="enhMuted">Kolize: ${(item.collisions || []).length} • eventy: ${(item.resolvedEvents || []).length}</div>
                 </div>
                 <div class="enhButtonRow" style="margin-top:0;">
-                  <button class="btnSmall" data-enh-history="rewind" data-round="${item.roundNo}">Vratit pred kolo</button>
+                  ${item.startSnapshot
+                    ? `<button class="btnSmall" data-enh-history="rewind" data-round="${item.roundNo}">Vratit pred kolo</button>`
+                    : `<span class="enhMuted">Historicky zaznam</span>`}
                 </div>
               </div>
               <div class="enhMuted" style="margin-top:8px;">${Object.entries(item.placements || {}).sort((a,b) => a[1] - b[1]).map(([teamId, place]) => {
@@ -1995,74 +1997,5 @@
     ].join(",");
   }
 
-  async function applyRound6PresetFromUrl(){
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("apply_round6") !== "20260721") return;
-
-    const preset = {
-      version:5,
-      phase:"race",
-      lastSavedAt:"2026-07-21T18:00:00.000Z",
-      settings:{
-        raceName:"VC Klondike",
-        trackSize:30,
-        eventTiles:[3,7,11,15,19,23,27,30],
-        placeToDelta:{1:5,2:4,3:3,4:2,5:1},
-        collisionRandom:true,
-        animationsEnabled:true,
-        animationSpeed:1,
-        eventRules:{}
-      },
-      teams:[
-        {id:"mer",name:"Mercedes",color:"#00D2BE",baseTotal:14,total:17,offTrack:false,mod:{deferred:0,capNext:null},stats:{lastPlaces:[5,4,3,4,2]}},
-        {id:"mcl",name:"McLaren",color:"#FF8700",baseTotal:18,total:24,offTrack:false,mod:{deferred:0,capNext:null},stats:{lastPlaces:[3,5,2,2,4]}},
-        {id:"ast",name:"Aston Martin",color:"#006F62",baseTotal:13,total:22,offTrack:false,mod:{deferred:0,capNext:null},stats:{lastPlaces:[2,2,4,5,5]}},
-        {id:"fer",name:"Ferrari",color:"#DC0000",baseTotal:28,total:31,offTrack:false,mod:{deferred:0,capNext:null},stats:{lastPlaces:[1,1,1,1,3]}},
-        {id:"wil",name:"Alpine",color:"#FF4FBF",baseTotal:19,total:21,offTrack:false,mod:{deferred:0,capNext:null},stats:{lastPlaces:[4,3,3,3,1]}}
-      ],
-      history:[],
-      cthLog:[],
-      games:[
-        {no:1,roundNo:1,name:"Brambory",placements:{mer:5,mcl:3,ast:2,fer:1,wil:4},deltas:{mer:1,mcl:3,ast:4,fer:5,wil:2}},
-        {no:2,roundNo:2,name:"Za od trojic",placements:{mer:4,mcl:5,ast:2,fer:1,wil:3},deltas:{mer:2,mcl:1,ast:4,fer:5,wil:3}},
-        {no:3,roundNo:3,name:"Podpisy",placements:{mer:3,mcl:2,ast:4,fer:1,wil:3},deltas:{mer:3,mcl:4,ast:2,fer:5,wil:3}},
-        {no:4,roundNo:4,name:"VC ciny",placements:{mer:4,mcl:2,ast:5,fer:1,wil:3},deltas:{mer:4,mcl:8,ast:2,fer:10,wil:6}},
-        {no:5,roundNo:5,name:"Bez pro body",placements:{mer:2,mcl:4,ast:5,fer:3,wil:1},deltas:{mer:4,mcl:2,ast:1,fer:3,wil:5}}
-      ],
-      roundArchive:[],
-      rubber:{neutralChance:0.15},
-      eventThird:1,
-      round:{
-        number:6,
-        activityName:"",
-        locked:false,
-        needsConfirm:false,
-        moved:{mer:false,mcl:false,ast:false,fer:false,wil:false},
-        placements:{},
-        deltas:{},
-        collisionLog:[],
-        previewEvents:[],
-        startSnapshot:null,
-        eventQueue:[],
-        eventDeltaApplied:{},
-        resolvedEvents:[],
-        batchProgress:null
-      },
-      pending:null
-    };
-
-    const timer = window.setInterval(function(){
-      const cloud = window.__cthCloudSync?.getState?.();
-      if (!cloud?.canWrite) return;
-
-      window.clearInterval(timer);
-      app.setState(preset);
-      url.searchParams.delete("apply_round6");
-      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-      app.showToast?.("Historie nastavena. Kolo 6 je bez aktivnich efektu.");
-    }, 250);
-  }
-
-  applyRound6PresetFromUrl();
   boot();
 })();
